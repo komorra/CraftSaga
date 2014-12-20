@@ -112,9 +112,21 @@ public class WorldGenerator
         }
     }
 
-    public void GenerateOne()
+    public void GenerateTest()
     {
+        //for (int la = 0; la < 16; la++)
+        //{
+        //    for (int lb = 0; lb < 16; lb++)
+        //    {
+        //        for (int lc = 0; lc < 16; lc++)
+        //        {
+        //            if(la + lb + lc > 3)
+        //            PlaceVoxel(la, lb, lc, 2);
+        //        }
+        //    }
+        //}
         PlaceVoxel(0, 0, 0, 1);
+        //PlaceVoxel(1, 0, 0, 1);
     }
 
     public void GenerateStandard()

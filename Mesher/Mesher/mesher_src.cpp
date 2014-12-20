@@ -17,11 +17,11 @@ extern "C" __declspec(dllexport) void __stdcall MeshVoxels(
 	int* texH
 	)
 {
-	int voxels[CS * CS * CS];
-	uint8_t work[CS * CS * CS];
+	int voxels[CS * CS * CS + 1];
+	uint8_t work[CS * CS * CS + 1];
 	
-	memset(voxels, 0, CS*CS*CS*sizeof(int));
-	memset(work, 0, CS*CS*CS);
+	memset(voxels, 0, (CS*CS*CS+1)*sizeof(int));
+	memset(work, 0, (CS*CS*CS+1));
 
 	for (int la = 0; la < voxelCount; la++)
 	{
@@ -87,6 +87,10 @@ extern "C" __declspec(dllexport) void __stdcall MeshVoxels(
 						}
 						else if (beginU != -1)
 						{	
+							if ((endU == -1) && (u == CS - 1))
+							{
+								endU = beginU;
+							}
 							if (endU != -1)
 							{
 								//TODO: Add face generation code
@@ -102,50 +106,57 @@ extern "C" __declspec(dllexport) void __stdcall MeshVoxels(
 									vertices[curVert + r].m[dim] = depth + so;
 									vertices[curVert + r].m[dimu] = rect[(r / 2) * 2];
 									vertices[curVert + r].m[dimv] = rect[(r % 2) * 2 + 1];
-									normals[curVert + r].m[dim] = side;
+									normals[curVert + r].m[dim] = -side;
 									normals[curVert + r].m[dimu] = 0;
 									normals[curVert + r].m[dimv] = 0;
 								}
-								curVert += 4;
-								if (side < 0)
+								
+								if (side > 0)
 								{
-									tris[curInd + 0] = 0;
-									tris[curInd + 1] = 1;
-									tris[curInd + 2] = 2;
+									tris[curInd + 0] = curVert + 0;
+									tris[curInd + 1] = curVert + 1;
+									tris[curInd + 2] = curVert + 2;
 
-									tris[curInd + 3] = 1;
-									tris[curInd + 4] = 2;
-									tris[curInd + 5] = 3;
+									tris[curInd + 3] = curVert + 3;
+									tris[curInd + 4] = curVert + 2;
+									tris[curInd + 5] = curVert + 1;
 								}
 								else
 								{
-									tris[curInd + 0] = 2;
-									tris[curInd + 1] = 1;
-									tris[curInd + 2] = 0;
+									tris[curInd + 0] = curVert + 2;
+									tris[curInd + 1] = curVert + 1;
+									tris[curInd + 2] = curVert + 0;
 
-									tris[curInd + 3] = 3;
-									tris[curInd + 4] = 2;
-									tris[curInd + 5] = 1;
+									tris[curInd + 3] = curVert + 1;
+									tris[curInd + 4] = curVert + 2;
+									tris[curInd + 5] = curVert + 3;
 								}
+								curVert += 4;
 								curInd += 6;
+
+								v = endV;
+								u = beginU;
 
 								beginU = -1;
 								endU = -1;
 								endV = -1;
-								expandU = false;
-
-								v = endV;
-								u = beginU;
+								expandU = false;								
 							}
 						}						
 					}
 					if (beginU != -1)
 					{
 						expandU = true;
+						if (endV == -1)
+						{
+							endV = beginV;
+						}
 					}
 				}
 			}
-			setbit << 1;
+			setbit <<= 1;
 		}
 	}
+	*vertexCount = curVert;
+	*indexCount = curInd;
 }

@@ -21,13 +21,13 @@ int vtab(int x, int y, int z)
 
 int vtab_safe(int x, int y, int z, int shf = 0)
 {
-	if (x < 0)return 0;
-	if (y < 0)return 0;
-	if (z < 0)return 0;
+	if (x < 0)return CS*CS*CS;
+	if (y < 0)return CS*CS*CS;
+	if (z < 0)return CS*CS*CS;
 
-	if (x >= CS)return 0;
-	if (y >= CS)return 0;
-	if (z >= CS)return 0;
+	if (x >= CS)return CS*CS*CS;
+	if (y >= CS)return CS*CS*CS;
+	if (z >= CS)return CS*CS*CS;
 
 	if (shf == 1)
 	{

@@ -100,89 +100,66 @@ public class VoxelContainer : MonoBehaviour
 	    }	
 	}
 
-    public unsafe void Process()
+    public void Process()
     {
         Func<object, object> async = new Func<object, object>((c =>
         {
             var container = c as VoxelContainer;
             var Voxels = container.Voxels;
 
-            CSCore.input inp = new CSCore.input();
-            inp.coords = Marshal.AllocHGlobal(sizeof (long)*Voxels.Count);
-            inp.materials = Marshal.AllocHGlobal(sizeof (int)*Voxels.Count);
-            inp.types = Marshal.AllocHGlobal(sizeof (int)*Voxels.Count);
-            Marshal.Copy(Voxels.Keys.ToArray(), 0, inp.coords, Voxels.Count);
-            Marshal.Copy(Voxels.Values.ToArray(), 0, inp.types, Voxels.Count);
-            inp.voxelCount = Voxels.Count;
+            //CSCore.input inp = new CSCore.input();
+            //inp.coords = Marshal.AllocHGlobal(sizeof(long) * Voxels.Count);
+            //inp.materials = Marshal.AllocHGlobal(sizeof(int) * Voxels.Count);
+            //inp.types = Marshal.AllocHGlobal(sizeof(int) * Voxels.Count);
+            //Marshal.Copy(Voxels.Keys.ToArray(), 0, inp.coords, Voxels.Count);
+            //Marshal.Copy(Voxels.Values.ToArray(), 0, inp.types, Voxels.Count);
+            //inp.voxelCount = Voxels.Count;
 
-            CSCore.output outputSt = new CSCore.output();
-            CSCore.settings settingsSt = new CSCore.settings();
-            CSCore.MeshVolume2(ref inp, ref outputSt, ref settingsSt);
+            //CSCore.output outputSt = new CSCore.output();
+            //CSCore.settings settingsSt = new CSCore.settings();
+            //CSCore.MeshVolume2(ref inp, ref outputSt, ref settingsSt);
 
-            Matrix4x4 identity = Matrix4x4.identity;
-            Matrix4x4* m = &identity;
+            //Matrix4x4 identity = Matrix4x4.identity;
+            //Matrix4x4* m = &identity;
 
-            IntPtr mptr = (IntPtr) m;
-            IntPtr verts = IntPtr.Zero;
-            int numverts = 0;
-            int texW = 0;
-            int texH = 0;
-            IntPtr cTex = IntPtr.Zero;
-            IntPtr mTex = IntPtr.Zero;
-            Vector3 center = Vector3.zero;
-            CSCore.CreateModel_SafeUV(new[] {outputSt}, mptr, 1, ref verts, ref numverts, ref texW, ref texH,
-                ref cTex,
-                ref mTex, ref center);
+            //IntPtr mptr = (IntPtr)m;
+            //IntPtr verts = IntPtr.Zero;
+            //int numverts = 0;
+            //int texW = 0;
+            //int texH = 0;
+            //IntPtr cTex = IntPtr.Zero;
+            //IntPtr mTex = IntPtr.Zero;
+            //Vector3 center = Vector3.zero;
+            //CSCore.CreateModel_SafeUV(new[] { outputSt }, mptr, 1, ref verts, ref numverts, ref texW, ref texH,
+            //    ref cTex,
+            //    ref mTex, ref center);
 
-            CSCore.slVertex[] vertices = new CSCore.slVertex[numverts];
-            IntPtr t = verts;
-            int vertSize = Marshal.SizeOf(typeof (CSCore.slVertex));
-            for (int la = 0; la < numverts; la++)
-            {
-                vertices[la] = (CSCore.slVertex) Marshal.PtrToStructure(t, typeof (CSCore.slVertex));
-                t = new IntPtr(t.ToInt32() + vertSize);
-            }
+            //CSCore.slVertex[] vertices = new CSCore.slVertex[numverts];
+            //IntPtr t = verts;
+            //int vertSize = Marshal.SizeOf(typeof(CSCore.slVertex));
+            //for (int la = 0; la < numverts; la++)
+            //{
+            //    vertices[la] = (CSCore.slVertex)Marshal.PtrToStructure(t, typeof(CSCore.slVertex));
+            //    t = new IntPtr(t.ToInt32() + vertSize);
+            //}
+           
+            Vector3[] vertices = new Vector3[4*16*16*16*6];
+            Vector3[] normals = new Vector3[4*16*16*16*6];
+            Vector2[] uvs = new Vector2[4*16*16*16*6];
+            int[] tris = new int[6*16*16*16*6];
+            int vcount = 0;
+            int icount = 0;
+            int texw = 0;
+            int texh = 0;
 
-            List<Vector3> vertList = new List<Vector3>();
-            List<Vector3> nrmList = new List<Vector3>();
-            List<Vector2> uvList = new List<Vector2>();
-            List<int> indList = new List<int>();
+            Mesher.MeshVoxels(Voxels.Count, Voxels.Keys.ToArray(), Voxels.Values.ToArray(),
+                vertices, normals, uvs, tris, ref vcount, ref icount, null, ref texw, ref texh);
 
-            for (int la = 0; la < vertices.Length; la++)
-            {
-                CSCore.slVertex v = vertices[la];
-
-                indList.Add(vertList.Count + 2);
-                indList.Add(vertList.Count + 1);
-                indList.Add(vertList.Count + 0);
-
-                indList.Add(vertList.Count + 1);
-                indList.Add(vertList.Count + 2);
-                indList.Add(vertList.Count + 3);
-
-                Vector3 vv = v.vVec;
-                Vector3 vu = Vector3.Cross(Vector3.Normalize(v.vVec), v.nrm)*v.uLen;
-
-                //vertList.Add(new Vertex(v.pos - vu - vv, v.nrm, new Vector2(v.uv[1].X, v.uv[0].Y)));
-                //vertList.Add(new Vertex(v.pos + vu - vv, v.nrm, new Vector2(v.uv[0].X, v.uv[0].Y)));
-                //vertList.Add(new Vertex(v.pos - vu + vv, v.nrm, new Vector2(v.uv[1].X, v.uv[1].Y)));
-                //vertList.Add(new Vertex(v.pos + vu + vv, v.nrm, new Vector2(v.uv[0].X, v.uv[1].Y)));
-
-                vertList.Add(v.pos - vu - vv);
-                vertList.Add(v.pos + vu - vv);
-                vertList.Add(v.pos - vu + vv);
-                vertList.Add(v.pos + vu + vv);
-
-                nrmList.Add(-v.nrm);
-                nrmList.Add(-v.nrm);
-                nrmList.Add(-v.nrm);
-                nrmList.Add(-v.nrm);
-
-                uvList.Add(new Vector2(v.uv[1].x, v.uv[0].y));
-                uvList.Add(new Vector2(v.uv[0].x, v.uv[0].y));
-                uvList.Add(new Vector2(v.uv[1].x, v.uv[1].y));
-                uvList.Add(new Vector2(v.uv[0].x, v.uv[1].y));
-            }
+            Array.Resize(ref vertices, vcount);
+            Array.Resize(ref normals, vcount);
+            Array.Resize(ref uvs, vcount);
+            Array.Resize(ref tris, icount);
+            
             var cs = WorldGenerator.ChunkSize;
             container.aocol = new Color[cs * cs * cs];
             for (int la = 0; la < cs * cs * cs; la++)
@@ -191,31 +168,14 @@ public class VoxelContainer : MonoBehaviour
                 int y = (la / cs) % cs;
                 int z = (la / (cs * cs));
 
-                float val = container.CalcAO(x, y, z);                
+                float val = container.CalcAO(x, y, z);
                 //float val = 1;
                 //val = z/15f;
                 //float val = (x == 0 && y == 0 && z == 0) || (x == 1 && y==1 && z==1) ? 1 : 0;
                 container.aocol[la] = new Color(val, val, val);
             }
 
-            //List<Bounds> phyboxes = new List<Bounds>();
-
-            //foreach (var kv in container.Voxels)
-            //{
-            //    int x, y, z;
-            //    Utils.LongToVoxelCoord(kv.Key, out x, out y, out z);
-            //    int vx = container.VX + x;
-            //    int vy = container.VY + y;
-            //    int vz = container.VZ + z;
-            //    if (WorldManager.Active.Generator.IsContactVoxel(vx, vy, vz))
-            //    {
-            //        var bounds = new Bounds(new Vector3(x, y, z) + Vector3.one*0.5f, Vector3.one);
-            //        phyboxes.Add(bounds);
-            //    }
-            //}
-
-            return new object[]
-            {vertList.ToArray(), nrmList.ToArray(), uvList.ToArray(), indList.ToArray(), texW, texH, cTex};
+            return new object[] { vertices, normals, uvs, tris, texw, texh, IntPtr.Zero };            
         }));
 
         Action<object, object> syncAction = new Action<object, object>((c, d) =>
@@ -229,56 +189,34 @@ public class VoxelContainer : MonoBehaviour
             var indList = data[3] as int[];
             var texW = (int)data[4];
             var texH = (int)data[5];
-            var cTex = (IntPtr) data[6];
-
-            var colliders = container.GetComponents<BoxCollider>();
-            foreach (var col in colliders)
-            {
-                Destroy(col);
-            }
-
-            //foreach (var box in phyBoxes)
-            //{
-            //    var bc = container.gameObject.AddComponent<BoxCollider>();
-            //    bc.center = box.center;
-            //    bc.size = box.size;
-            //    bc.enabled = false;
-            //}
-            //var trig = container.gameObject.AddComponent<BoxCollider>();
-            //trig.center = Vector3.one*8;
-            //trig.size = Vector3.one*20;
-            //trig.isTrigger = true;
+            var cTex = (IntPtr) data[6];                        
 
             var mesh = new Mesh();
             mesh.vertices = vertList;
             mesh.normals = nrmList;
             mesh.uv = uvList;
             mesh.triangles = indList;
-            //mesh.RecalculateNormals();
+            mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             mesh.Optimize();
 
             var mf = container.GetComponent<MeshFilter>();
             mf.mesh = mesh;
 
-            var tex = new Texture2D(texW, texH);
-            tex.filterMode = FilterMode.Point;
-            tex.wrapMode = TextureWrapMode.Clamp;
+            //var tex = new Texture2D(texW, texH);
+            //tex.filterMode = FilterMode.Point;
+            //tex.wrapMode = TextureWrapMode.Clamp;
 
-            var idata = new int[texW*texH];
-            //if (idata.Contains(2048))
-            //{
-            //    Debug.Log("!!!");
-            //}            
-            Marshal.Copy(cTex, idata, 0, idata.Length);
-            //Debug.Log(idata[0]);
-            var tdata = new Color32[texW*texH];
-            var handle = GCHandle.Alloc(tdata, GCHandleType.Pinned);
-            Marshal.Copy(idata, 0, handle.AddrOfPinnedObject(), idata.Length);            
-            handle.Free();
-            //Debug.Log(String.Format("{0}:{1}:{2}:{3}", tdata[0].r, tdata[0].g, tdata[0].b, tdata[0].a));
-            tex.SetPixels32(tdata);
-            tex.Apply();
+            //var idata = new int[texW*texH];            
+            //Marshal.Copy(cTex, idata, 0, idata.Length);
+            ////Debug.Log(idata[0]);
+            //var tdata = new Color32[texW*texH];
+            //var handle = GCHandle.Alloc(tdata, GCHandleType.Pinned);
+            //Marshal.Copy(idata, 0, handle.AddrOfPinnedObject(), idata.Length);            
+            //handle.Free();
+            ////Debug.Log(String.Format("{0}:{1}:{2}:{3}", tdata[0].r, tdata[0].g, tdata[0].b, tdata[0].a));
+            //tex.SetPixels32(tdata);
+            //tex.Apply();
 
             if (container.AOTexture != null)
             {
@@ -291,16 +229,17 @@ public class VoxelContainer : MonoBehaviour
             container.AOTexture.SetPixels(aocol);
             container.AOTexture.Apply();
 
-            container.renderer.material = new Material(container.Shader);
+            //container.renderer.material = new Material(container.Shader);
+            container.renderer.material = new Material(Shader.Find("Diffuse"));
             if (container.renderer.material.mainTexture != null)
             {
                 Destroy(container.renderer.material.mainTexture);
             }
-            container.renderer.material.mainTexture = tex;
-            container.renderer.material.SetTexture("_TopSkin", container.TopTexture);
-            container.renderer.material.SetTexture("_SideSkin", container.SideTexture);
-            container.renderer.material.SetTexture("_BottomSkin", container.BottomTexture);
-            container.renderer.material.SetTexture("_AO", container.AOTexture);
+            //container.renderer.material.mainTexture = tex;
+            //container.renderer.material.SetTexture("_TopSkin", container.TopTexture);
+            //container.renderer.material.SetTexture("_SideSkin", container.SideTexture);
+            //container.renderer.material.SetTexture("_BottomSkin", container.BottomTexture);
+            //container.renderer.material.SetTexture("_AO", container.AOTexture);
         });
 
         Threader.Active.Enqueue(new Threader.Item()

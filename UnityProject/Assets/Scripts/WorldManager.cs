@@ -18,8 +18,9 @@ public class WorldManager : MonoBehaviour
 
 	    Active = this;
 
-        Generator.GenerateStandard();
-        //Generator.GenerateOne();
+        //Generator.GenerateStandard();
+        //Generator.GenerateSimple();
+        Generator.GenerateTest();
 	}
 	
 	// Update is called once per frame
