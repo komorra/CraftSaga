@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnityVS.CraftSaga.CSharp", "UnityVS.CraftSaga.CSharp.csproj", "{39D741AA-7E5F-5E12-DEF6-07E13BE3AA0F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnityVS.CraftSaga.CSharp.Plugins", "UnityVS.CraftSaga.CSharp.Plugins.csproj", "{A4E6B60C-4732-1B3A-ACCB-BDDC4DF520F7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnityVS.CraftSaga.CSharp.Editor", "UnityVS.CraftSaga.CSharp.Editor.csproj", "{B62CBDAD-00D1-C2E5-42A6-56766796AB41}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{39D741AA-7E5F-5E12-DEF6-07E13BE3AA0F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{39D741AA-7E5F-5E12-DEF6-07E13BE3AA0F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{39D741AA-7E5F-5E12-DEF6-07E13BE3AA0F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{39D741AA-7E5F-5E12-DEF6-07E13BE3AA0F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A4E6B60C-4732-1B3A-ACCB-BDDC4DF520F7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A4E6B60C-4732-1B3A-ACCB-BDDC4DF520F7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A4E6B60C-4732-1B3A-ACCB-BDDC4DF520F7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A4E6B60C-4732-1B3A-ACCB-BDDC4DF520F7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B62CBDAD-00D1-C2E5-42A6-56766796AB41}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B62CBDAD-00D1-C2E5-42A6-56766796AB41}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B62CBDAD-00D1-C2E5-42A6-56766796AB41}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B62CBDAD-00D1-C2E5-42A6-56766796AB41}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
