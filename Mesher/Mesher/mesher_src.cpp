@@ -84,10 +84,12 @@ extern "C" __declspec(dllexport) void __stdcall MeshVoxels(
 								endU = u;
 							}
 							work[index] |= setbit;
+							if (u == CS - 1 && v == CS - 1) goto trymesh;
 						}
 						else if (beginU != -1)
 						{	
-							if ((endU == -1) && (u == CS - 1))
+							trymesh:
+							if ((endU == -1) && (u == CS - 1) && (v == CS - 1))
 							{
 								endU = beginU;
 							}
