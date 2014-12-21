@@ -50,6 +50,10 @@ public class WorldGenerator
 
     public void PlaceVoxel(int x, int y,int z, int type)
     {
+        //GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        //cube.transform.position = new Vector3(x, y, z) + Vector3.one * 0.5f;
+        //cube.renderer.material.color = Color.red;
+
         int cx, cy, cz;
         Utils.CoordVoxelToChunk(x, y, z, out cx, out cy, out cz, ChunkSize);
         int vx, vy, vz;
@@ -116,17 +120,20 @@ public class WorldGenerator
     {
         for (int la = 0; la < 16; la++)
         {
-            for (int lb = 0; lb < 16; lb++)
+            for (int lb = 0; lb < 8; lb++)
             {
                 for (int lc = 0; lc < 16; lc++)
                 {
-                    //if (la + lb + lc > 3)
-                        PlaceVoxel(la, lb, lc, 2);
+                    //if (la > 0 && la < 15) continue;
+                    //if (lc > 0 && lc < 15) continue;
+                    //if (la == 0 || lc == 0 || la == 15 || lc == 15)
+                    if(new Vector3(la-8,lb-8,lc-8).magnitude > 6)
+                    PlaceVoxel(la, lb, lc, 2);
                 }
             }
         }
         PlaceVoxel(0, 0, 0, 1);
-        //PlaceVoxel(1, 0, 0, 1);
+        PlaceVoxel(0, 1, 0, 1);
     }
 
     public void GenerateStandard()
