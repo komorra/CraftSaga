@@ -17,6 +17,7 @@ public static class Mesher
         ref int indexCount,
         int[] texture,
         ref int texW,
-        ref int texH
+        ref int texH,
+        [MarshalAs(UnmanagedType.I1)] bool liquid
         );
 }

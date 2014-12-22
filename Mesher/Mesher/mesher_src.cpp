@@ -14,7 +14,8 @@ extern "C" __declspec(dllexport) void __stdcall MeshVoxels(
 	int* indexCount,
 	int* texture,
 	int* texW,
-	int* texH
+	int* texH,
+	bool liquid
 	)
 {
 	int voxels[CS * CS * CS + 1];
@@ -55,7 +56,7 @@ extern "C" __declspec(dllexport) void __stdcall MeshVoxels(
 
 				while ((rectExist = get_next_uv_rect(work, voxels, dim, side, depth, setbit, beginU, beginV, endU, endV)))
 				{
-					spawn_face(vertices, normals, uvs, tris, curVert, curInd, beginU, beginV, endU, endV, dim, depth, side);
+					spawn_face(vertices, normals, uvs, tris, curVert, curInd, beginU, beginV, endU, endV, dim, depth, side, liquid);
 				}
 			}
 			setbit <<= 1;

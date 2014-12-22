@@ -14,7 +14,16 @@ public class WorldGenerator
     public const int ChunkSize = 16;
     public int Seed = 0;
 
-    private Billow billow = new Billow();
+    private Billow billow;
+    private RiggedMultifractal fractal;
+
+    public void Initialize()
+    {
+        billow = new Billow();
+        billow.Seed = Seed;
+        fractal = new RiggedMultifractal();
+        fractal.Seed = Seed;
+    }
 
     public bool IsContactVoxel(int x, int y, int z)
     {
@@ -68,6 +77,8 @@ public class WorldGenerator
             vc.TopTexture = WorldManager.Active.TopTexture;
             vc.BottomTexture = WorldManager.Active.BottomTexture;
             vc.Shader = WorldManager.Active.VoxelShader;
+            vc.LiquidShader = WorldManager.Active.LiquidShader;
+
             vc.X = cx;
             vc.Y = cy;
             vc.Z = cz;
@@ -139,19 +150,53 @@ public class WorldGenerator
     public void GenerateStandard()
     {
         bool queryUp, queryDown;
-        int s = 1;
+        int s = 100;
         for (int la = -s; la <= s; la++)
         {
             for (int lb = -s; lb <= s; lb++)
             {
-                int curh = 2;
-                do
+                //int curh = 2;
+                //do
+                //{
+                //    QueryChunk(la, curh, lb, out queryUp, out queryDown);
+                //    curh--;
+                //} while (queryDown);
+                var dirth = GetDirtH(la, lb);
+                var rockh = GetRockH(la, lb);
+                int level = Math.Max(dirth, rockh);
+                if (rockh > dirth)
                 {
-                    QueryChunk(la, curh, lb, out queryUp, out queryDown);
-                    curh--;
-                } while (queryDown);
+                    for (int h = -16; h <= rockh; h++)
+                    {
+                        PlaceVoxel(la, h, lb, 4);
+                    }
+                }
+                else
+                {
+                    for (int h = -16; h <= dirth; h++)
+                    {
+                        PlaceVoxel(la, h, lb, h == dirth ? 1 : 3);
+                    }
+                }
+                if (level < 0)
+                {
+                    for (int h = level+1; h <= 0; h++)
+                    {
+                        PlaceVoxel(la, h, lb, 64);
+                    }
+                }
             }
         }        
+    }
+
+    public int GetRockH(int x, int z)
+    {
+        return (int)(fractal.GetValue(x/480.0, 0, z/480.0) * 96.0 - 88.0);
+    }
+
+    public int GetDirtH(int x, int z)
+    {
+        return (int)(billow.GetValue(x / 250.0, 0, z / 250.0) * 60f + 30);
     }
 
 

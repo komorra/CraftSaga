@@ -12,7 +12,17 @@ public class VoxelContainer : MonoBehaviour
 
     public static Dictionary<long, VoxelContainer> Containers = new Dictionary<long, VoxelContainer>();
     public Dictionary<long,int> Voxels = new Dictionary<long, int>();
+
+    public Dictionary<long, int> Static
+    {
+        get { return Voxels.Where(o => o.Value < 64 || o.Value >= 128).ToDictionary(o => o.Key, o => o.Value); }
+    }
+    public Dictionary<long, int> Liquid
+    {
+        get { return Voxels.Where(o => o.Value >= 64 && o.Value < 128).ToDictionary(o => o.Key, o => o.Value); }
+    }
     public Shader Shader;
+    public Shader LiquidShader;
     public Texture2D TopTexture;
     public Texture2D SideTexture;
     public Texture2D BottomTexture;
@@ -103,45 +113,10 @@ public class VoxelContainer : MonoBehaviour
     public void Process()
     {
         Func<object, object> async = new Func<object, object>((c =>
-        {
+        {            
             var container = c as VoxelContainer;
-            var Voxels = container.Voxels;
-
-            //CSCore.input inp = new CSCore.input();
-            //inp.coords = Marshal.AllocHGlobal(sizeof(long) * Voxels.Count);
-            //inp.materials = Marshal.AllocHGlobal(sizeof(int) * Voxels.Count);
-            //inp.types = Marshal.AllocHGlobal(sizeof(int) * Voxels.Count);
-            //Marshal.Copy(Voxels.Keys.ToArray(), 0, inp.coords, Voxels.Count);
-            //Marshal.Copy(Voxels.Values.ToArray(), 0, inp.types, Voxels.Count);
-            //inp.voxelCount = Voxels.Count;
-
-            //CSCore.output outputSt = new CSCore.output();
-            //CSCore.settings settingsSt = new CSCore.settings();
-            //CSCore.MeshVolume2(ref inp, ref outputSt, ref settingsSt);
-
-            //Matrix4x4 identity = Matrix4x4.identity;
-            //Matrix4x4* m = &identity;
-
-            //IntPtr mptr = (IntPtr)m;
-            //IntPtr verts = IntPtr.Zero;
-            //int numverts = 0;
-            //int texW = 0;
-            //int texH = 0;
-            //IntPtr cTex = IntPtr.Zero;
-            //IntPtr mTex = IntPtr.Zero;
-            //Vector3 center = Vector3.zero;
-            //CSCore.CreateModel_SafeUV(new[] { outputSt }, mptr, 1, ref verts, ref numverts, ref texW, ref texH,
-            //    ref cTex,
-            //    ref mTex, ref center);
-
-            //CSCore.slVertex[] vertices = new CSCore.slVertex[numverts];
-            //IntPtr t = verts;
-            //int vertSize = Marshal.SizeOf(typeof(CSCore.slVertex));
-            //for (int la = 0; la < numverts; la++)
-            //{
-            //    vertices[la] = (CSCore.slVertex)Marshal.PtrToStructure(t, typeof(CSCore.slVertex));
-            //    t = new IntPtr(t.ToInt32() + vertSize);
-            //}
+            var Voxels = container.Static;
+            if (Voxels.Count == 0) return null;
            
             Vector3[] vertices = new Vector3[4*16*16*16*6];
             Vector3[] normals = new Vector3[4*16*16*16*6];
@@ -154,7 +129,7 @@ public class VoxelContainer : MonoBehaviour
             int[] itex = new int[2048*2048];
 
             Mesher.MeshVoxels(Voxels.Count, Voxels.Keys.ToArray(), Voxels.Values.ToArray(),
-                vertices, normals, uvs, tris, ref vcount, ref icount, itex, ref texw, ref texh);
+                vertices, normals, uvs, tris, ref vcount, ref icount, itex, ref texw, ref texh, false);
 
             Array.Resize(ref vertices, vcount);
             Array.Resize(ref normals, vcount);
@@ -182,6 +157,8 @@ public class VoxelContainer : MonoBehaviour
 
         Action<object, object> syncAction = new Action<object, object>((c, d) =>
         {
+            if (d == null) return;
+
             var container = c as VoxelContainer;
             var data = d as object[];
 
@@ -205,7 +182,7 @@ public class VoxelContainer : MonoBehaviour
             var mf = container.GetComponent<MeshFilter>();
             mf.mesh = mesh;
 
-            Debug.Log(texW + " " + texH);
+            //Debug.Log(texW + " " + texH);
             var tex = new Texture2D(texW, texH);
             tex.filterMode = FilterMode.Point;
             tex.wrapMode = TextureWrapMode.Clamp;
@@ -242,12 +219,137 @@ public class VoxelContainer : MonoBehaviour
             container.renderer.material.SetTexture("_AO", container.AOTexture);
         });
 
+        Func<object, object> asyncLiquid = new Func<object, object>((c =>
+        {
+            Debug.Log("AL");
+            var container = c as VoxelContainer;
+            var Voxels = container.Liquid;
+            if (Voxels.Count == 0) return 0;
+
+            Vector3[] vertices = new Vector3[4 * 16 * 16 * 16 * 6];
+            Vector3[] normals = new Vector3[4 * 16 * 16 * 16 * 6];
+            Vector2[] uvs = new Vector2[4 * 16 * 16 * 16 * 6];
+            int[] tris = new int[6 * 16 * 16 * 16 * 6];
+            int vcount = 0;
+            int icount = 0;
+            int texw = 0;
+            int texh = 0;
+            int[] itex = new int[2048 * 2048];
+
+            Debug.Log("ALP");
+            Mesher.MeshVoxels(Voxels.Count, Voxels.Keys.ToArray(), Voxels.Values.ToArray(),
+                vertices, normals, uvs, tris, ref vcount, ref icount, itex, ref texw, ref texh, true);
+
+            Debug.Log("ALM");
+            Array.Resize(ref vertices, vcount);
+            Array.Resize(ref normals, vcount);
+            Array.Resize(ref uvs, vcount);
+            Array.Resize(ref tris, icount);
+            Array.Resize(ref itex, texw * texh);
+
+            //var cs = WorldGenerator.ChunkSize;
+            //container.aocol = new Color[cs * cs * cs];
+            //for (int la = 0; la < cs * cs * cs; la++)
+            //{
+            //    int x = la % cs;
+            //    int y = (la / cs) % cs;
+            //    int z = (la / (cs * cs));
+
+            //    float val = container.CalcAO(x, y, z);
+            //    //float val = 1;
+            //    //val = z/15f;
+            //    //float val = (x == 0 && y == 0 && z == 0) || (x == 1 && y==1 && z==1) ? 1 : 0;
+            //    container.aocol[la] = new Color(val, val, val);
+            //}
+
+            return new object[] { vertices, normals, uvs, tris, texw, texh, itex };
+        }));
+
+        Action<object, object> syncActionLiquid = new Action<object, object>((c, d) =>
+        {
+            Debug.Log("ALS");                      
+
+            var container = c as VoxelContainer;
+            var data = d as object[];
+            if (data == null) return;
+
+            GameObject liGo = new GameObject("Liquid");
+            liGo.transform.parent = container.transform;
+            liGo.transform.localPosition = Vector3.zero;
+
+            var vertList = data[0] as Vector3[];
+            var nrmList = data[1] as Vector3[];
+            var uvList = data[2] as Vector2[];
+            var indList = data[3] as int[];
+            var texW = (int)data[4];
+            var texH = (int)data[5];
+            var itex = data[6] as int[];
+
+            var mesh = new Mesh();
+            mesh.vertices = vertList;
+            mesh.normals = nrmList;
+            mesh.uv = uvList;
+            mesh.triangles = indList;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            mesh.Optimize();
+
+            var mf = liGo.AddComponent<MeshFilter>();
+            mf.mesh = mesh;
+
+            //Debug.Log(texW + " " + texH);
+            var tex = new Texture2D(texW, texH);
+            tex.filterMode = FilterMode.Point;
+            tex.wrapMode = TextureWrapMode.Clamp;
+
+            var tdata = new Color32[texW * texH];
+            var handle = GCHandle.Alloc(tdata, GCHandleType.Pinned);
+            Marshal.Copy(itex, 0, handle.AddrOfPinnedObject(), itex.Length);
+            handle.Free();
+            ////Debug.Log(String.Format("{0}:{1}:{2}:{3}", tdata[0].r, tdata[0].g, tdata[0].b, tdata[0].a));
+            tex.SetPixels32(tdata);
+            tex.Apply();
+
+            //if (container.AOTexture != null)
+            //{
+            //    Destroy(container.AOTexture);
+            //}
+            //var cs = WorldGenerator.ChunkSize;
+            //container.AOTexture = new Texture3D(cs, cs, cs, TextureFormat.ARGB32, false);
+            //container.AOTexture.filterMode = FilterMode.Trilinear;
+            //container.AOTexture.wrapMode = TextureWrapMode.Clamp;
+            //container.AOTexture.SetPixels(aocol);
+            //container.AOTexture.Apply();
+
+            liGo.AddComponent<MeshRenderer>();
+
+            //container.renderer.material = new Material(container.Shader);
+            liGo.renderer.material = new Material(LiquidShader);
+            if (liGo.renderer.material.mainTexture != null)
+            {
+                Destroy(liGo.renderer.material.mainTexture);
+            }
+            liGo.renderer.material.mainTexture = tex;
+            liGo.renderer.material.SetTexture("_TopSkin", container.TopTexture);
+            liGo.renderer.material.SetTexture("_SideSkin", container.SideTexture);
+            liGo.renderer.material.SetTexture("_BottomSkin",container.BottomTexture);
+            liGo.renderer.material.SetTexture("_AO", container.AOTexture);
+        });
+
         Threader.Active.Enqueue(new Threader.Item()
         {
             ActionASync = async,
             PostActionSync = syncAction,
             Context = this,
             Priority = 1f/(1f+Vector3.Distance(new Vector3(VX,VY,VZ), Camera.main.transform.position)),
+        });
+
+        Threader.Active.Enqueue(new Threader.Item()
+        {
+            ActionASync = asyncLiquid,
+            PostActionSync = syncActionLiquid,
+            Context = this,
+            Priority = 1f / (1f + Vector3.Distance(new Vector3(VX, VY, VZ), Camera.main.transform.position)),
         });
     }
 

@@ -17,3 +17,12 @@ PhotonServerSettings.asset.meta
 
 #Unity3D Generated File On Crash Reports
 sysinfo.txt
+*.exp
+*.ilk
+*.lib
+*.pdb
+*.opensdf
+*.sdf
+*.log
+*.tlog
+*.tlog

@@ -6,6 +6,7 @@ public class WorldManager : MonoBehaviour
     public static WorldManager Active { get; private set; }
 
     public Shader VoxelShader;
+    public Shader LiquidShader;
     public Texture2D TopTexture;
     public Texture2D SideTexture;
     public Texture2D BottomTexture;
@@ -17,9 +18,10 @@ public class WorldManager : MonoBehaviour
 	{
 
 	    Active = this;
+        Generator.Initialize();
 
-        //Generator.GenerateStandard();
-        Generator.GenerateSimple();
+        Generator.GenerateStandard();
+        //Generator.GenerateSimple();
         //Generator.GenerateTest();
 	}
 	

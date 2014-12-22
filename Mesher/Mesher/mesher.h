@@ -191,8 +191,13 @@ loopexit:
 }
 
 void spawn_face(vector3* vertices, vector3* normals, vector2* uvs, int* tris, 
-	int &curVert, int &curInd, int beginU, int beginV, int endU, int endV, int dim, int depth, int side)
+	int &curVert, int &curInd, int beginU, int beginV, int endU, int endV, int dim, int depth, int side, bool liquid)
 {
+	if (liquid)
+	{
+		if (dim != 1 || side < 0) return;
+	}
+
 	int dimu = (dim + 1) % 3;
 	int dimv = (dim + 2) % 3;
 	int so = (side > 0) ? 1 : 0; //side offset
@@ -200,7 +205,7 @@ void spawn_face(vector3* vertices, vector3* normals, vector2* uvs, int* tris,
 	int rect[4] = { beginU, beginV, endU + 1, endV + 1 };
 	for (int r = 0; r < 4; r++)
 	{
-		vertices[curVert + r].m[dim] = depth + so;
+		vertices[curVert + r].m[dim] = depth + so - (liquid ? 0.2 : 0);
 		vertices[curVert + r].m[dimu] = rect[(r / 2) * 2];
 		vertices[curVert + r].m[dimv] = rect[(r % 2) * 2 + 1];
 		normals[curVert + r].m[dim] = side;
