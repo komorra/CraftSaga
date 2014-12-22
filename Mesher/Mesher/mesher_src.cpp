@@ -63,6 +63,8 @@ extern "C" __declspec(dllexport) void __stdcall MeshVoxels(
 	}
 	*vertexCount = curVert;
 	*indexCount = curInd;
+
+	make_texture(voxels, vertices, normals, uvs, tris, *vertexCount, texture, texW, texH);
 }
 
 

@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <cstring>
+#include <cmath>
 
 //Chunk Size
 #define CS 16
@@ -83,6 +84,18 @@ bool work_check(uint8_t* work, int *voxels, int index, int check, int setbit)
 int max(int a, int b)
 {
 	if (a > b) return a;
+	return b;
+}
+
+float max(float a, float b)
+{
+	if (a > b) return a;
+	return b;
+}
+
+float min(float a, float b)
+{
+	if (a < b) return a;
 	return b;
 }
 
@@ -217,4 +230,198 @@ void spawn_face(vector3* vertices, vector3* normals, vector2* uvs, int* tris,
 	}
 	curVert += 4;
 	curInd += 6;
+}
+
+void dump_types(int* voxels, vector3* vptr, vector3* nptr, int *tempPatch, int &w, int &h)
+{
+	int dim = 0;
+	if (abs(nptr->m[1]) > 0.1) dim = 1;
+	if (abs(nptr->m[2]) > 0.1) dim = 2;
+	int side = nptr->m[dim] < 0 ? -1 : 1;
+	int dimu = (dim + 1) % 3;
+	int dimv = (dim + 2) % 3;
+	int d = vptr->m[dim] - (side > 0 ? 1 : 0);
+
+	float umin = vptr->m[dimu];
+	float umax = vptr->m[dimu];
+	float vmin = vptr->m[dimv];
+	float vmax = vptr->m[dimv];
+
+	for (int la = 0; la < 4; la++)
+	{
+		umin = min((vptr + la)->m[dimu], umin);
+		umax = max((vptr + la)->m[dimu], umax);
+		vmin = min((vptr + la)->m[dimv], vmin);
+		vmax = max((vptr + la)->m[dimv], vmax);
+	}
+
+	int beginu = round(umin);
+	int beginv = round(vmin);
+	int endu = round(umax - 1);
+	int endv = round(vmax - 1);
+
+	w = endu - beginu + 1;
+	h = endv - beginv + 1;
+
+	bool result = true;
+	int prevt = -1;
+	for (int u = beginu; u <= endu; u++)
+	{
+		for (int v = beginv; v <= endv; v++)
+		{
+			int crd[3] = { 0, 0, 0 };
+			uvd2crd(u, v, d, dim, crd);
+
+			int x = u - beginu;
+			int y = v - beginv;
+			int t = voxels[vtab(crd[0], crd[1], crd[2])];
+			if (prevt == -1)
+			{
+				prevt = t;
+			}
+			else
+			{
+				if (t != prevt)result = false;
+				prevt = t;
+			}
+			tempPatch[x + y * w] = t;
+		}
+	}	
+	if (result)
+	{
+		w = 1;
+		h = 1;
+	}
+}
+
+void make_texture(int* voxels, vector3* vertices, vector3* normals, vector2* uvs, int* tris, int vcount, int* tex, int* texw, int* texh)
+{	
+	const int tempSize = 2048;
+
+	int *tempTex = new int[tempSize*tempSize];
+	int curh = 1;
+	int curw = 1;
+	uint8_t *reserved = new uint8_t[tempSize * tempSize];
+	memset(reserved, 0, tempSize*tempSize);
+
+	int tempPatch[CS*CS];
+	int tempPatchW;
+	int tempPatchH;
+	int iter = 0;
+
+	for (int lv = 0; lv < vcount; lv += 4)
+	{
+		dump_types(voxels, vertices + lv, normals + lv, tempPatch, tempPatchW, tempPatchH);
+		while (curw < tempPatchW) curw <<= 1;
+		while (curh < tempPatchH) curh <<= 1;
+		bool match = true;
+		
+		int x = 0;
+		int y = 0;
+		do
+		{			
+			match = false;
+			for (int la = 0; la < curw-tempPatchW; la++)
+			{
+				for (int lb = 0; lb < curh-tempPatchH; lb++)
+				{
+					x = la;
+					y = lb;
+					match = true;
+					for (int pa = 0; pa < tempPatchW; pa++)
+					{
+						for (int pb = 0; pb < tempPatchH; pb++)
+						{							
+							int patchCol = tempPatch[pa + pb * tempPatchW];
+							int texCol = tempTex[la + pa + (lb + pb) * tempSize];
+							uint8_t resv = reserved[la + pa + (lb + pb) * tempSize];
+							if (resv == 1 && patchCol != texCol)
+							{
+								match = false;
+								goto patchexit;
+							}
+						}
+					}
+					if (match)goto texexit;
+				patchexit:;
+				}
+			}	
+			texexit:
+			if (!match)
+			{
+				if (iter % 2 == 0) curw <<= 1;
+				else curh <<= 1;
+				iter++;
+			}			
+		} while (!match);
+
+		for (int pa = 0; pa < tempPatchW; pa++)
+		{
+			for (int pb = 0; pb < tempPatchH; pb++)
+			{
+				reserved[x + pa + (y + pb) * tempSize] = 1;
+				tempTex[x + pa + (y + pb) * tempSize] = tempPatch[pa + pb * tempPatchW];
+			}
+		}
+
+		/*uvs[lv + 0].m[0] = x;
+		uvs[lv + 0].m[1] = y;
+			 
+		uvs[lv + 2].m[0] = x + tempPatchW + 1;
+		uvs[lv + 2].m[1] = y;
+			 
+		uvs[lv + 1].m[0] = x;
+		uvs[lv + 1].m[1] = y + tempPatchH + 1;
+			 
+		uvs[lv + 3].m[0] = x + tempPatchW + 1;
+		uvs[lv + 3].m[1] = y + tempPatchH + 1;*/
+
+		int indbase = (lv / 4) * 6;
+		for (int i = 0; i < 6; i++)
+		{			
+			int v = tris[indbase + i];
+			vector2* uv = uvs + v;
+			v %= 4;
+			if (v == 0)
+			{
+				uv->m[0] = x;
+				uv->m[1] = y;
+			}
+			if (v == 1)
+			{
+				uv->m[0] = x;
+				uv->m[1] = y + tempPatchH;
+			}
+			if (v == 2)
+			{
+				uv->m[0] = x + tempPatchW;
+				uv->m[1] = y;
+			}
+			if (v == 3)
+			{
+				uv->m[0] = x + tempPatchW;
+				uv->m[1] = y + tempPatchH;
+			}
+		}
+	}
+
+	*texw = curw;
+	*texh = curh;
+
+	for (int la = 0; la < curw; la++)
+	{
+		for (int lb = 0; lb < curh; lb++)
+		{
+			tex[la + lb * curw] = tempTex[la + lb * tempSize];
+		}
+	}
+
+	for (int la = 0; la < vcount; la++)
+	{
+		uvs[la].m[0] = uvs[la].m[0] / (float)(curw);
+		uvs[la].m[1] = uvs[la].m[1] / (float)(curh);
+	}
+
+	delete[] tempTex;
+	delete[] reserved;
 }

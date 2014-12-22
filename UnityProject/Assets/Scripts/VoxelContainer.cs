@@ -151,14 +151,16 @@ public class VoxelContainer : MonoBehaviour
             int icount = 0;
             int texw = 0;
             int texh = 0;
+            int[] itex = new int[2048*2048];
 
             Mesher.MeshVoxels(Voxels.Count, Voxels.Keys.ToArray(), Voxels.Values.ToArray(),
-                vertices, normals, uvs, tris, ref vcount, ref icount, null, ref texw, ref texh);
+                vertices, normals, uvs, tris, ref vcount, ref icount, itex, ref texw, ref texh);
 
             Array.Resize(ref vertices, vcount);
             Array.Resize(ref normals, vcount);
             Array.Resize(ref uvs, vcount);
             Array.Resize(ref tris, icount);
+            Array.Resize(ref itex, texw*texh);
             
             var cs = WorldGenerator.ChunkSize;
             container.aocol = new Color[cs * cs * cs];
@@ -175,7 +177,7 @@ public class VoxelContainer : MonoBehaviour
                 container.aocol[la] = new Color(val, val, val);
             }
 
-            return new object[] { vertices, normals, uvs, tris, texw, texh, IntPtr.Zero };            
+            return new object[] { vertices, normals, uvs, tris, texw, texh, itex };            
         }));
 
         Action<object, object> syncAction = new Action<object, object>((c, d) =>
@@ -189,7 +191,7 @@ public class VoxelContainer : MonoBehaviour
             var indList = data[3] as int[];
             var texW = (int)data[4];
             var texH = (int)data[5];
-            var cTex = (IntPtr) data[6];                        
+            var itex = data[6] as int[];
 
             var mesh = new Mesh();
             mesh.vertices = vertList;
@@ -203,20 +205,18 @@ public class VoxelContainer : MonoBehaviour
             var mf = container.GetComponent<MeshFilter>();
             mf.mesh = mesh;
 
-            //var tex = new Texture2D(texW, texH);
-            //tex.filterMode = FilterMode.Point;
-            //tex.wrapMode = TextureWrapMode.Clamp;
-
-            //var idata = new int[texW*texH];            
-            //Marshal.Copy(cTex, idata, 0, idata.Length);
-            ////Debug.Log(idata[0]);
-            //var tdata = new Color32[texW*texH];
-            //var handle = GCHandle.Alloc(tdata, GCHandleType.Pinned);
-            //Marshal.Copy(idata, 0, handle.AddrOfPinnedObject(), idata.Length);            
-            //handle.Free();
+            Debug.Log(texW + " " + texH);
+            var tex = new Texture2D(texW, texH);
+            tex.filterMode = FilterMode.Point;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            
+            var tdata = new Color32[texW*texH];
+            var handle = GCHandle.Alloc(tdata, GCHandleType.Pinned);
+            Marshal.Copy(itex, 0, handle.AddrOfPinnedObject(), itex.Length);            
+            handle.Free();
             ////Debug.Log(String.Format("{0}:{1}:{2}:{3}", tdata[0].r, tdata[0].g, tdata[0].b, tdata[0].a));
-            //tex.SetPixels32(tdata);
-            //tex.Apply();
+            tex.SetPixels32(tdata);
+            tex.Apply();
 
             if (container.AOTexture != null)
             {
@@ -230,16 +230,16 @@ public class VoxelContainer : MonoBehaviour
             container.AOTexture.Apply();
 
             //container.renderer.material = new Material(container.Shader);
-            container.renderer.material = new Material(Shader.Find("Diffuse"));
+            container.renderer.material = new Material(Shader);
             if (container.renderer.material.mainTexture != null)
             {
                 Destroy(container.renderer.material.mainTexture);
             }
-            //container.renderer.material.mainTexture = tex;
-            //container.renderer.material.SetTexture("_TopSkin", container.TopTexture);
-            //container.renderer.material.SetTexture("_SideSkin", container.SideTexture);
-            //container.renderer.material.SetTexture("_BottomSkin", container.BottomTexture);
-            //container.renderer.material.SetTexture("_AO", container.AOTexture);
+            container.renderer.material.mainTexture = tex;
+            container.renderer.material.SetTexture("_TopSkin", container.TopTexture);
+            container.renderer.material.SetTexture("_SideSkin", container.SideTexture);
+            container.renderer.material.SetTexture("_BottomSkin", container.BottomTexture);
+            container.renderer.material.SetTexture("_AO", container.AOTexture);
         });
 
         Threader.Active.Enqueue(new Threader.Item()
