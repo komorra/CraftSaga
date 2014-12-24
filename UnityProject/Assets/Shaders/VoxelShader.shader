@@ -118,10 +118,10 @@
 			//if(ct.a < 0.5) ct.rgb = float3(1,0,0);	
 			ct *=  _Color * _Multiplier;		
 			
-			float3 wp= IN.worldPos-0.001;
-			if(wp.x < 0)wp.x -= 1.0;
-			if(wp.y < 0)wp.y -= 1.0;
-			if(wp.z < 0)wp.z -= 1.0;
+			float3 wp= IN.worldPos-0.0001;
+			//wp.x -= 1.0;
+			//wp.y -= 1.0;
+			//wp.z -= 1.0;
 			
 			float ao = tex3D(_AO, mod(wp.xyz/16.0)).r;
 

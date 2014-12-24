@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -23,6 +24,9 @@ public class WorldGenerator
         billow.Seed = Seed;
         fractal = new RiggedMultifractal();
         fractal.Seed = Seed;
+        UnityEngine.Random.seed = Seed;
+        billow.Frequency = UnityEngine.Random.value + 0.5;
+        fractal.Frequency = UnityEngine.Random.value + 0.5;
     }
 
     public bool IsContactVoxel(int x, int y, int z)
@@ -57,6 +61,16 @@ public class WorldGenerator
         return null;
     }
 
+    public static bool IsSolid(int type)
+    {
+        return type < 64 || type >= 128;
+    }
+
+    public static bool IsLiquid(int type)
+    {
+        return type >= 64 && type < 128;
+    }
+
     public void PlaceVoxel(int x, int y,int z, int type)
     {
         //GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -86,8 +100,11 @@ public class WorldGenerator
             go.isStatic = true;
             go.transform.position = new Vector3(vx, vy, vz);
         }
-        vc.Voxels.AddOrReplace(Utils.VoxelCoordToLong(x - vx, y - vy, z - vz), type);
-        vc.ProcessingNeeded = true;
+        bool changed = vc.Voxels.AddOrReplace(Utils.VoxelCoordToLong(x - vx, y - vy, z - vz), type);
+        if(changed)
+        { 
+            vc.ProcessingNeeded = true;
+        }
     }
 
     public void GenerateSimple()
@@ -147,56 +164,43 @@ public class WorldGenerator
         PlaceVoxel(0, 1, 0, 1);
     }
 
-    public void GenerateStandard()
+    public void GenerateVoxelsForCoord(int cx, int cz)
     {
-        bool queryUp, queryDown;
-        int s = 100;
-        for (int la = -s; la <= s; la++)
+        var dirth = GetDirtH(cx, cz);
+        var rockh = GetRockH(cx, cz);
+        int level = Math.Max(dirth, rockh);
+        for (int h = level-1; h < 0; h++)
         {
-            for (int lb = -s; lb <= s; lb++)
+            PlaceVoxel(cx, h, cz, 64);
+        }
+        if (rockh > dirth)
+        {
+            for (int h = -16; h < rockh; h++)
             {
-                //int curh = 2;
-                //do
-                //{
-                //    QueryChunk(la, curh, lb, out queryUp, out queryDown);
-                //    curh--;
-                //} while (queryDown);
-                var dirth = GetDirtH(la, lb);
-                var rockh = GetRockH(la, lb);
-                int level = Math.Max(dirth, rockh);
-                if (rockh > dirth)
-                {
-                    for (int h = -16; h <= rockh; h++)
-                    {
-                        PlaceVoxel(la, h, lb, 4);
-                    }
-                }
-                else
-                {
-                    for (int h = -16; h <= dirth; h++)
-                    {
-                        PlaceVoxel(la, h, lb, h == dirth ? 1 : 3);
-                    }
-                }
-                if (level < 0)
-                {
-                    for (int h = level+1; h <= 0; h++)
-                    {
-                        PlaceVoxel(la, h, lb, 64);
-                    }
-                }
+                PlaceVoxel(cx, h, cz, 4);
             }
-        }        
+        }
+        else
+        {
+            for (int h = -16; h < dirth; h++)
+            {
+                PlaceVoxel(cx, h, cz, h == dirth ? 1 : 3);
+            }
+        }                       
     }
 
     public int GetRockH(int x, int z)
     {
-        return (int)(fractal.GetValue(x/480.0, 0, z/480.0) * 96.0 - 88.0);
+        double val = (fractal.GetValue(x/480.0, 0, z/480.0) * 96.0 - 88.0);
+        if (val < 0) val = -Mathf.Pow((float)- val, 0.5f);
+        return (int) val;
     }
 
     public int GetDirtH(int x, int z)
     {
-        return (int)(billow.GetValue(x / 250.0, 0, z / 250.0) * 60f + 30);
+        double val = (billow.GetValue(x / 250.0, 0, z / 250.0) * 60f + 30);
+        if (val < 0) val = -Mathf.Pow((float)-val, 0.5f);
+        return (int)val;
     }
 
 
@@ -238,6 +242,7 @@ public class WorldGenerator
                 queryDown = false;
             }
         }
-    }
+    }   
+   
 }
 

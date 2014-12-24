@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using CSEngine;
@@ -7,19 +8,29 @@ using UnityEngine;
 using System.Collections;
 
 [RequireComponent(typeof(MeshRenderer), typeof(MeshFilter))]
-public class VoxelContainer : MonoBehaviour
+public class VoxelContainer : MonoBehaviour, IProcessable
 {
 
     public static Dictionary<long, VoxelContainer> Containers = new Dictionary<long, VoxelContainer>();
     public Dictionary<long,int> Voxels = new Dictionary<long, int>();
 
-    public Dictionary<long, int> Static
+    public Dictionary<long, int> Solid
     {
-        get { return Voxels.Where(o => o.Value < 64 || o.Value >= 128).ToDictionary(o => o.Key, o => o.Value); }
+        get {
+            lock (Voxels)
+            {
+                return Voxels.Where(o => WorldGenerator.IsSolid(o.Value)).ToDictionary(o => o.Key, o => o.Value);
+            }
+        }
     }
     public Dictionary<long, int> Liquid
     {
-        get { return Voxels.Where(o => o.Value >= 64 && o.Value < 128).ToDictionary(o => o.Key, o => o.Value); }
+        get {
+            lock (Voxels)
+            {
+                return Voxels.Where(o => WorldGenerator.IsLiquid(o.Value)).ToDictionary(o => o.Key, o => o.Value);
+            }
+        }
     }
     public Shader Shader;
     public Shader LiquidShader;
@@ -64,6 +75,8 @@ public class VoxelContainer : MonoBehaviour
         }
     }
 
+    public int TimesProcessed { get; private set; }
+
     private Texture3D AOTexture;
 
 	// Use this for initialization
@@ -73,6 +86,15 @@ public class VoxelContainer : MonoBehaviour
         //rigidbody.isKinematic = true;
         //rigidbody.useGravity = false;
 	}
+
+    void OnDrawGizmos()
+    {
+        if (IsProcessing)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireCube(new Vector3(VX + 8, VY + 8, VZ + 8), Vector3.one * 16);
+        }
+    }
 
     //void OnTriggerEnter(Collider other)
     //{
@@ -101,21 +123,34 @@ public class VoxelContainer : MonoBehaviour
         Containers.Add(Utils.VoxelCoordToLong(X, Y, Z), this);
     }
 
+    public void Unregister()
+    {
+        Containers.Remove(Utils.VoxelCoordToLong(X, Y, Z));
+    }
+
     // Update is called once per frame
 	void Update () {
 	    if (ProcessingNeeded)
 	    {
 	        ProcessingNeeded = false;
 	        Process();
-	    }	
+	    }
+        //Debug.Log(Vector3.Distance(new Vector3(VX, VY, VZ), Camera.main.transform.position));	    	    
+	    Vector3 cam = Camera.main.transform.position;
+        if(Vector2.Distance(new Vector2(VX, VZ), new Vector2(cam.x,cam.z)) > 100)
+	    {
+	        Unregister();
+	        Destroy(gameObject);
+	    }
 	}
 
     public void Process()
     {
-        Func<object, object> async = new Func<object, object>((c =>
+        TimesProcessed++;
+        Func<IProcessable, object> async = new Func<IProcessable, object>((c =>
         {            
             var container = c as VoxelContainer;
-            var Voxels = container.Static;
+            var Voxels = container.Solid;
             if (Voxels.Count == 0) return null;
            
             Vector3[] vertices = new Vector3[4*16*16*16*6];
@@ -126,10 +161,14 @@ public class VoxelContainer : MonoBehaviour
             int icount = 0;
             int texw = 0;
             int texh = 0;
-            int[] itex = new int[2048*2048];
+            int[] itex = new int[256*256];
 
+            Stopwatch watch = new Stopwatch();
+            watch.Start();
             Mesher.MeshVoxels(Voxels.Count, Voxels.Keys.ToArray(), Voxels.Values.ToArray(),
                 vertices, normals, uvs, tris, ref vcount, ref icount, itex, ref texw, ref texh, false);
+            watch.Stop();
+            UnityEngine.Debug.Log(watch.Elapsed);
 
             Array.Resize(ref vertices, vcount);
             Array.Resize(ref normals, vcount);
@@ -155,11 +194,13 @@ public class VoxelContainer : MonoBehaviour
             return new object[] { vertices, normals, uvs, tris, texw, texh, itex };            
         }));
 
-        Action<object, object> syncAction = new Action<object, object>((c, d) =>
+        Action<IProcessable, object> syncAction = new Action<IProcessable, object>((c, d) =>
         {
             if (d == null) return;
 
             var container = c as VoxelContainer;
+            if (container == null) return;
+
             var data = d as object[];
 
             var vertList = data[0] as Vector3[];
@@ -219,9 +260,9 @@ public class VoxelContainer : MonoBehaviour
             container.renderer.material.SetTexture("_AO", container.AOTexture);
         });
 
-        Func<object, object> asyncLiquid = new Func<object, object>((c =>
+        Func<IProcessable, object> asyncLiquid = new Func<IProcessable, object>((c =>
         {
-            Debug.Log("AL");
+            //Debug.Log("AL");
             var container = c as VoxelContainer;
             var Voxels = container.Liquid;
             if (Voxels.Count == 0) return 0;
@@ -236,11 +277,11 @@ public class VoxelContainer : MonoBehaviour
             int texh = 0;
             int[] itex = new int[2048 * 2048];
 
-            Debug.Log("ALP");
+            //Debug.Log("ALP");
             Mesher.MeshVoxels(Voxels.Count, Voxels.Keys.ToArray(), Voxels.Values.ToArray(),
                 vertices, normals, uvs, tris, ref vcount, ref icount, itex, ref texw, ref texh, true);
 
-            Debug.Log("ALM");
+            //Debug.Log("ALM");
             Array.Resize(ref vertices, vcount);
             Array.Resize(ref normals, vcount);
             Array.Resize(ref uvs, vcount);
@@ -265,17 +306,23 @@ public class VoxelContainer : MonoBehaviour
             return new object[] { vertices, normals, uvs, tris, texw, texh, itex };
         }));
 
-        Action<object, object> syncActionLiquid = new Action<object, object>((c, d) =>
+        Action<IProcessable, object> syncActionLiquid = new Action<IProcessable, object>((c, d) =>
         {
-            Debug.Log("ALS");                      
+            //Debug.Log("ALS");                      
 
             var container = c as VoxelContainer;
+            if (container == null) return;
             var data = d as object[];
             if (data == null) return;
 
+            foreach (Transform t in container.transform)
+            {
+                Destroy(t.gameObject);
+            }
+
             GameObject liGo = new GameObject("Liquid");
             liGo.transform.parent = container.transform;
-            liGo.transform.localPosition = Vector3.zero;
+            liGo.transform.localPosition = Vector3.zero;            
 
             var vertList = data[0] as Vector3[];
             var nrmList = data[1] as Vector3[];
@@ -341,7 +388,12 @@ public class VoxelContainer : MonoBehaviour
             ActionASync = async,
             PostActionSync = syncAction,
             Context = this,
-            Priority = 1f/(1f+Vector3.Distance(new Vector3(VX,VY,VZ), Camera.main.transform.position)),
+            PriorityData = new Vector3(VX,VY,VZ),
+            PriorityResolver = (d) =>
+            {
+                return 1f/(1f + Vector3.Distance((Vector3) d, Camera.main.transform.position));
+            },
+            Tag = "Terrain"
         });
 
         Threader.Active.Enqueue(new Threader.Item()
@@ -349,7 +401,12 @@ public class VoxelContainer : MonoBehaviour
             ActionASync = asyncLiquid,
             PostActionSync = syncActionLiquid,
             Context = this,
-            Priority = 1f / (1f + Vector3.Distance(new Vector3(VX, VY, VZ), Camera.main.transform.position)),
+            PriorityData = new Vector3(VX, VY, VZ),
+            PriorityResolver = (d) =>
+            {
+                return 1f / (1f + Vector3.Distance((Vector3)d, Camera.main.transform.position));
+            },
+            Tag = "Liquid"
         });
     }
 
@@ -420,9 +477,17 @@ public class VoxelContainer : MonoBehaviour
                     var vx = Mathf.RoundToInt(x + la + X * WorldGenerator.ChunkSize + (X < 0 ? 1 : 0));
                     var vy = Mathf.RoundToInt(y + lb + Y * WorldGenerator.ChunkSize + (Y < 0 ? 1 : 0));
                     var vz = Mathf.RoundToInt(z + lc + Z * WorldGenerator.ChunkSize + (Z < 0 ? 1 : 0));
-                    if (WorldManager.Active.Generator.GetVoxel(vx,vy,vz)!=null)
+                    var vox = WorldManager.Active.Generator.GetVoxel(vx, vy, vz);
+                    if(vox!=null)
                     {
-                        sum++;
+                        if (WorldGenerator.IsSolid(vox.Value))
+                        {
+                            sum++;
+                        }
+                        if (WorldGenerator.IsLiquid(vox.Value))
+                        {
+                            sum += 0.05f;
+                        }
                     }
                 }
             }
@@ -430,4 +495,6 @@ public class VoxelContainer : MonoBehaviour
         ao -= sum/total;
         return ao;
     }
+
+    public bool IsProcessing { get; set; }
 }
