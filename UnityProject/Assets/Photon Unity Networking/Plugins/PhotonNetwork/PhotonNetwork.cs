@@ -969,7 +969,7 @@ public static class PhotonNetwork
     }
 
     /// <summary>
-    /// Static constructor used for basic setup.
+    /// Solid constructor used for basic setup.
     /// </summary>
     static PhotonNetwork()
     {

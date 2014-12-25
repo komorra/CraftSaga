@@ -1,3 +1,5 @@
+#define _BENCHMARK
+
 #include "mesher.h"
 #include <iostream>
 #include <ctime>

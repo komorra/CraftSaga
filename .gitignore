@@ -31,3 +31,18 @@ Mesher/Mesher.sdf
 Mesher/Mesher.sdf
 Mesher/Mesher.sdf
 Mesher/Mesher.v12.suo
+Mesher/Mesher/Benchmark/benchmark.obj
+Mesher/Mesher/Benchmark/mesher_src.obj
+Mesher/Mesher/Debug Benchmark/benchmark.obj
+Mesher/Mesher/Debug Benchmark/mesher_src.obj
+Mesher/Mesher/Debug Benchmark/vc120.idb
+Mesher/Mesher/Debug/benchmark.obj
+*.obj
+*.idb
+*.lastbuildstate
+*.log
+Mesher/Mesher/Release/Mesher.log
+Mesher/Mesher/Release/Mesher.log
+Mesher/Mesher/Release/Mesher.unsuccessfulbuild
+Mesher/Mesher/Release/mesher_src.obj
+Mesher/Mesher/Release/vc120.pdb

@@ -27,6 +27,10 @@ public class WorldGenerator
         UnityEngine.Random.seed = Seed;
         billow.Frequency = UnityEngine.Random.value + 0.5;
         fractal.Frequency = UnityEngine.Random.value + 0.5;
+
+        int x,y,z;
+        Utils.LongToVoxelCoord(38655688717L, out x, out y, out z);
+        Debug.LogWarning("" + x + " " + y + " " + z);
     }
 
     public bool IsContactVoxel(int x, int y, int z)
@@ -100,10 +104,13 @@ public class WorldGenerator
             go.isStatic = true;
             go.transform.position = new Vector3(vx, vy, vz);
         }
-        bool changed = vc.Voxels.AddOrReplace(Utils.VoxelCoordToLong(x - vx, y - vy, z - vz), type);
-        if(changed)
-        { 
-            vc.ProcessingNeeded = true;
+        lock (vc.Voxels)
+        {
+            bool changed = vc.Voxels.AddOrReplace(Utils.VoxelCoordToLong(x - vx, y - vy, z - vz), type);
+            if(changed)
+            { 
+                vc.ProcessingNeeded = true;
+            }
         }
     }
 
@@ -175,14 +182,14 @@ public class WorldGenerator
         }
         if (rockh > dirth)
         {
-            for (int h = -16; h < rockh; h++)
+            for (int h = Utils.RoundV(rockh)-16; h < rockh; h++)
             {
                 PlaceVoxel(cx, h, cz, 4);
             }
         }
         else
         {
-            for (int h = -16; h < dirth; h++)
+            for (int h = Utils.RoundV(dirth)-16; h < dirth; h++)
             {
                 PlaceVoxel(cx, h, cz, h == dirth ? 1 : 3);
             }

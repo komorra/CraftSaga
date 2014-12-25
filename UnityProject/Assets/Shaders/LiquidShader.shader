@@ -43,22 +43,14 @@
 		{
 			if(tile == 0)return (float4)0;
 
-			float tt = (_SinTime*20.0+20.0);
+			float tt = (_SinTime*20.0+21.0);
 			tile += ((int)tt)%3;
 
 			float2 iuv = (float2)0;	
 			nrm*=-1.0;
 
-			if(nrm.x < -0.5)
-			{
-				iuv.x = 1-uv.z;
-				iuv.y = 1-uv.y;
-			}
-			if(nrm.x > 0.5)
-			{
-				iuv.x = uv.z;
-				iuv.y = 1-uv.y;
-			}
+			if(nrm.x < -0.5) return 0;			
+			if(nrm.x > 0.5) return 0;			
 			if(nrm.y < -0.5)
 			{
 				iuv.x = uv.x;
@@ -69,16 +61,8 @@
 				iuv.x = 1-uv.x;
 				iuv.y = uv.z;				
 			}
-			if(nrm.z < -0.5)
-			{
-				iuv.x = uv.x;
-				iuv.y = 1-uv.y;
-			}
-			if(nrm.z > 0.5)
-			{
-				iuv.x = 1-uv.x;
-				iuv.y = 1-uv.y;
-			}			
+			if(nrm.z < -0.5) return 0;			
+			if(nrm.z > 0.5) return 0;
 
 			
 			iuv.x /= 64.0;		

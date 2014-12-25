@@ -18,8 +18,8 @@ public class Threader : MonoBehaviour {
 
         public object PriorityData;
         public Func<object, double> PriorityResolver; 
-        public Func<IProcessable, object> ActionASync;
-        public Action<IProcessable,object> PostActionSync; 
+        public Func<IProcessable, string, object> ActionASync;
+        public Action<IProcessable,string, object> PostActionSync; 
         public object Data;
         public IProcessable Context;
         public bool IsWorking = false;
@@ -90,7 +90,7 @@ public class Threader : MonoBehaviour {
                 item.Context.IsProcessing = true;
                 Stopwatch watch = new Stopwatch();
                 watch.Start();
-                item.Data = item.ActionASync(item.Context);
+                item.Data = item.ActionASync(item.Context, item.Tag);
                 watch.Stop();
                 LastGenerationTime = watch.Elapsed;               
             });
@@ -104,7 +104,7 @@ public class Threader : MonoBehaviour {
         if (doneItems.Any())
         {
             var doneItem = doneItems.Max();
-            doneItem.PostActionSync(doneItem.Context, doneItem.Data);
+            doneItem.PostActionSync(doneItem.Context, doneItem.Tag, doneItem.Data);
             Items.Remove(doneItem);
             doneItem.Context.IsProcessing = false;
             workingCount--;

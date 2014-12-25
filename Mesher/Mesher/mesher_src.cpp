@@ -1,4 +1,8 @@
 #include "mesher.h"
+#ifdef _BENCHMARK
+#include <iostream>
+#include <ctime>
+#endif
 
 int vtab(int x, int y, int z)
 {
@@ -103,12 +107,84 @@ bool uv_rect_check(uint8_t *work, int *voxels, int dim, int side, int depth, int
 	return true;
 }
 
+//bool get_next_uv_rect(uint8_t *work, int *voxels, int dim, int side, int depth, int setbit, int &beginU, int &beginV, int &endU, int &endV)
+//{
+//	beginU = -1;
+//	beginV = -1;
+//	endU = -1;
+//	endV = -1;
+//	bool expandV = true;
+//	bool expandU = true;
+//
+//	int u, v;
+//
+//	for (u = 0; u < CS; u++)
+//	{
+//		for (v = 0; v < CS; v++)
+//		{
+//			int crd[3] = { 0, 0, 0 };
+//			int index, check;
+//			uvd_conv(u, v, depth, dim, side, crd, index, check);
+//
+//			if (work_check(work, voxels, index, check, setbit))
+//			{
+//				beginU = u;
+//				beginV = v;
+//				endV = v;
+//				endU = u;
+//				goto loopexit;
+//			}
+//		}
+//	}
+//loopexit:
+//
+//	if (beginU != -1)
+//	{
+//		for (u = beginU; u < CS; u++)
+//		{
+//			int oldU = endU;
+//			endU = u;
+//			if (!uv_rect_check(work, voxels, dim, side, depth, setbit, beginU, beginV, endU, endV))
+//			{
+//				endU = oldU;
+//				break;
+//			}
+//		}
+//
+//		for (v = beginV; v < CS; v++)
+//		{
+//			int oldV = endV;
+//			endV = v;
+//			if (!uv_rect_check(work, voxels, dim, side, depth, setbit, beginU, beginV, endU, endV))
+//			{
+//				endV = oldV;
+//				break;
+//			}
+//		}
+//
+//		for (int u = beginU; u <= endU; u++)
+//		{
+//			for (int v = beginV; v <= endV; v++)
+//			{
+//				int crd[3] = { 0, 0, 0 };
+//				int index, check;
+//				uvd_conv(u, v, depth, dim, side, crd, index, check);
+//
+//				work[index] |= setbit;
+//			}
+//		}
+//		return true;
+//	}
+//
+//	return false;
+//}
+
 bool get_next_uv_rect(uint8_t *work, int *voxels, int dim, int side, int depth, int setbit, int &beginU, int &beginV, int &endU, int &endV)
 {
 	beginU = -1;
 	beginV = -1;
-	endU = -1;
-	endV = -1;
+	endU = 15;
+	endV = 15;
 	bool expandV = true;
 	bool expandU = true;
 
@@ -124,40 +200,33 @@ bool get_next_uv_rect(uint8_t *work, int *voxels, int dim, int side, int depth, 
 
 			if (work_check(work, voxels, index, check, setbit))
 			{
-				beginU = u;
-				beginV = v;
-				endV = v;
-				endU = u;
-				goto loopexit;
+				if (beginU == -1)
+				{
+					beginU = u;
+					beginV = v;
+				}
+			}
+			else
+			{
+				if (beginU != -1)
+				{
+					if (endV == 15 && u == beginU && v > beginV)
+					{
+						endV = v - 1;
+					}
+					if (v <= endV && u > beginU)
+					{
+						endU = u - 1;
+						goto loopexit;
+					}
+				}
 			}
 		}
 	}
 loopexit:
 
 	if (beginU != -1)
-	{
-		for (u = beginU; u < CS; u++)
-		{
-			int oldU = endU;
-			endU = u;
-			if (!uv_rect_check(work, voxels, dim, side, depth, setbit, beginU, beginV, endU, endV))
-			{
-				endU = oldU;
-				break;
-			}
-		}
-
-		for (v = beginV; v < CS; v++)
-		{
-			int oldV = endV;
-			endV = v;
-			if (!uv_rect_check(work, voxels, dim, side, depth, setbit, beginU, beginV, endU, endV))
-			{
-				endV = oldV;
-				break;
-			}
-		}
-
+	{			
 		for (int u = beginU; u <= endU; u++)
 		{
 			for (int v = beginV; v <= endV; v++)
@@ -339,9 +408,11 @@ void make_texture(int* voxels, vector3* vertices, vector3* normals, vector2* uvs
 		texexit:
 			if (!match)
 			{
-				if (iter % 2 == 0) curw <<= 1;
+				/*if (iter % 2 == 0) curw <<= 1;
 				else curh <<= 1;
-				iter++;
+				iter++;*/
+				if (curw > curh) curh <<= 1;
+				else curw <<= 1;
 			}
 		} while (!match);
 
@@ -434,6 +505,10 @@ extern "C" __declspec(dllexport) void __stdcall MeshVoxels(
 	bool liquid
 	)
 {
+#ifdef _BENCHMARK
+	clock_t c1 = std::clock();
+#endif
+
 	int voxels[CS * CS * CS + 1];
 	uint8_t work[CS * CS * CS + 1];
 	
@@ -481,53 +556,16 @@ extern "C" __declspec(dllexport) void __stdcall MeshVoxels(
 	*vertexCount = curVert;
 	*indexCount = curInd;
 
+#ifdef _BENCHMARK
+	clock_t c2 = std::clock();
+#endif
 	make_texture(voxels, vertices, normals, uvs, tris, *vertexCount, texture, texW, texH);
+#ifdef _BENCHMARK
+	clock_t c3 = std::clock();
+	double vtime = double(c2 - c1) / CLOCKS_PER_SEC;
+	double ttime = double(c3 - c2) / CLOCKS_PER_SEC;
+	double total = vtime + ttime;
+	std::cout << "V/T Ratio: " << vtime/total << " / " << ttime/total << std::endl;
+#endif
 }
 
-
-//if (v < endV)
-//{
-//	endU--;
-//}
-//
-//int rect[4] = { beginU, beginV, endU + 1, endV + 1 };
-//for (int r = 0; r < 4; r++)
-//{
-//	vertices[curVert + r].m[dim] = depth + so;
-//	vertices[curVert + r].m[dimu] = rect[(r / 2) * 2];
-//	vertices[curVert + r].m[dimv] = rect[(r % 2) * 2 + 1];
-//	normals[curVert + r].m[dim] = -side;
-//	normals[curVert + r].m[dimu] = 0;
-//	normals[curVert + r].m[dimv] = 0;
-//}
-//
-//if (side > 0)
-//{
-//	tris[curInd + 0] = curVert + 0;
-//	tris[curInd + 1] = curVert + 1;
-//	tris[curInd + 2] = curVert + 2;
-//
-//	tris[curInd + 3] = curVert + 3;
-//	tris[curInd + 4] = curVert + 2;
-//	tris[curInd + 5] = curVert + 1;
-//}
-//else
-//{
-//	tris[curInd + 0] = curVert + 2;
-//	tris[curInd + 1] = curVert + 1;
-//	tris[curInd + 2] = curVert + 0;
-//
-//	tris[curInd + 3] = curVert + 1;
-//	tris[curInd + 4] = curVert + 2;
-//	tris[curInd + 5] = curVert + 3;
-//}
-//curVert += 4;
-//curInd += 6;
-//
-//v = endV;
-//u = beginU;
-//
-//beginU = -1;
-//endU = -1;
-//endV = -1;
-//expandU = false;

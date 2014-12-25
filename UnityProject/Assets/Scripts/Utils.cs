@@ -20,7 +20,7 @@ namespace CSEngine
             {
                 dict.Add(key, val);
                 changed = true;
-            }
+            }            
             return changed;
         }
 
@@ -32,6 +32,11 @@ namespace CSEngine
         public static int V2C(int v)
         {
             return Mathf.FloorToInt(v/16f);
+        }
+
+        public static int RoundV(int v)
+        {
+            return C2V(V2C(v));
         }
 
         public static void CoordVoxelToChunk(int vx, int vy, int vz, out int cx, out int cy, out int cz, int ChunkSize = 16)

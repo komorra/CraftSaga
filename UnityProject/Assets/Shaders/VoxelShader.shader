@@ -125,7 +125,7 @@
 			
 			float ao = tex3D(_AO, mod(wp.xyz/16.0)).r;
 
-			o.Albedo = ct.rgb *  pow(saturate(ao+0.05),6);
+			o.Albedo = ct.rgb *  pow(saturate(ao+0.05),4.3);
 			o.Alpha = ct.a;
 			//if(ct.a < 0.5)discard; saturate(0.5 + IN.worldPos.y * 0.06) *
 		}
