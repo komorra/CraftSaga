@@ -12,6 +12,7 @@ public class VoxelContainer : MonoBehaviour, IProcessable
 {
 
     public static Dictionary<long, VoxelContainer> Containers = new Dictionary<long, VoxelContainer>();
+    public static Dictionary<long, List<VoxelContainer>> FlatContainers = new Dictionary<long, List<VoxelContainer>>();
     public Dictionary<long,int> Voxels = new Dictionary<long, int>();
 
     public Dictionary<long, int> Solid
@@ -85,6 +86,7 @@ public class VoxelContainer : MonoBehaviour, IProcessable
 	    //Process();
         //rigidbody.isKinematic = true;
         //rigidbody.useGravity = false;
+	    InvokeRepeating("StateCheck", 0.1f, 0.1f);
 	}
 
     void OnDrawGizmos()
@@ -127,28 +129,39 @@ public class VoxelContainer : MonoBehaviour, IProcessable
     public void Register()
     {
         Containers.Add(Utils.VoxelCoordToLong(X, Y, Z), this);
+        long flatkey = Utils.VoxelCoordToLong(X, 0, Z);
+        if (!FlatContainers.ContainsKey(flatkey))
+        {
+            FlatContainers.Add(flatkey, new List<VoxelContainer>());
+        }
+        if (!FlatContainers[flatkey].Contains(this))
+        {
+            FlatContainers[flatkey].Add(this);
+        }
     }
 
     public void Unregister()
     {
         Containers.Remove(Utils.VoxelCoordToLong(X, Y, Z));
+        long flatkey = Utils.VoxelCoordToLong(X, 0, Z);
+        FlatContainers[flatkey].Remove(this);
     }
 
-    // Update is called once per frame
-	void Update () {
-	    if (ProcessingNeeded)
-	    {
-	        ProcessingNeeded = false;
-	        Process();
-	    }
+    void StateCheck()
+    {
+        if (ProcessingNeeded)
+        {
+            ProcessingNeeded = false;
+            Process();
+        }
         //Debug.Log(Vector3.Distance(new Vector3(VX, VY, VZ), Camera.main.transform.position));	    	    
-	    Vector3 cam = Camera.main.transform.position;
-        if(Vector2.Distance(new Vector2(VX, VZ), new Vector2(cam.x,cam.z)) > 100)
-	    {
-	        Unregister();
-	        Destroy(gameObject);
-	    }
-	}
+        Vector3 cam = Camera.main.transform.position;
+        if (Vector2.Distance(new Vector2(VX, VZ), new Vector2(cam.x, cam.z)) > 100)
+        {
+            Unregister();
+            Destroy(gameObject);
+        }
+    }    
 
     private object AsyncProcess(IProcessable c, string tag)
     {
@@ -165,19 +178,22 @@ public class VoxelContainer : MonoBehaviour, IProcessable
 
         if (Voxels.Count == 0) return null;
 
-        Vector3[] vertices = new Vector3[4 * 16 * 16 * 16 * 6];
-        Vector3[] normals = new Vector3[4 * 16 * 16 * 16 * 6];
-        Vector2[] uvs = new Vector2[4 * 16 * 16 * 16 * 6];
-        int[] tris = new int[6 * 16 * 16 * 16 * 6];
+        Vector3[] vertices = new Vector3[4 * 16 * 16 * 16 * 6 / 2];
+        Vector3[] normals = new Vector3[4 * 16 * 16 * 16 * 6 / 2];
+        Vector2[] uvs = new Vector2[4 * 16 * 16 * 16 * 6 / 2];
+        int[] tris = new int[6 * 16 * 16 * 16 * 6 / 2];
         int vcount = 0;
         int icount = 0;
         int texw = 0;
         int texh = 0;
-        int[] itex = new int[256 * 256];
+        int[] itex = new int[512 * 512];
+
+        var keys = Voxels.Keys.ToArray();
+        var vals = Voxels.Values.ToArray();
 
         Stopwatch watch = new Stopwatch();
         watch.Start();
-        Mesher.MeshVoxels(Voxels.Count, Voxels.Keys.ToArray(), Voxels.Values.ToArray(),
+        Mesher.MeshVoxels(Voxels.Count, keys, vals,
             vertices, normals, uvs, tris, ref vcount, ref icount, itex, ref texw, ref texh, tag=="Liquid");
         watch.Stop();
         UnityEngine.Debug.Log(watch.Elapsed);
@@ -227,6 +243,7 @@ public class VoxelContainer : MonoBehaviour, IProcessable
             }
 
             GameObject liGo = new GameObject("Liquid");
+            liGo.isStatic = true;
             liGo.transform.parent = container.transform;
             liGo.transform.localPosition = Vector3.zero;
 
@@ -339,33 +356,39 @@ public class VoxelContainer : MonoBehaviour, IProcessable
 
     public void Process()
     {
-        TimesProcessed++;        
+        TimesProcessed++;
 
-        Threader.Active.Enqueue(new Threader.Item()
+        if (Solid.Any())
         {
-            ActionASync = AsyncProcess,
-            PostActionSync = SyncProcess,
-            Context = this,
-            PriorityData = new Vector3(VX,VY,VZ),
-            PriorityResolver = (d) =>
+            Threader.Active.Enqueue(new Threader.Item()
             {
-                return 1f/(1f + Vector3.Distance((Vector3) d, Camera.main.transform.position));
-            },
-            Tag = "Terrain"
-        });
+                ActionASync = AsyncProcess,
+                PostActionSync = SyncProcess,
+                Context = this,
+                PriorityData = new Vector3(VX, VY, VZ),
+                PriorityResolver = (d) =>
+                {
+                    return 1f/(1f + Vector3.Distance((Vector3) d, Camera.main.transform.position));
+                },
+                Tag = "Terrain"
+            });
+        }
 
-        Threader.Active.Enqueue(new Threader.Item()
+        if (Liquid.Any())
         {
-            ActionASync = AsyncProcess,
-            PostActionSync = SyncProcess,
-            Context = this,
-            PriorityData = new Vector3(VX, VY, VZ),
-            PriorityResolver = (d) =>
+            Threader.Active.Enqueue(new Threader.Item()
             {
-                return 1f / (1f + Vector3.Distance((Vector3)d, Camera.main.transform.position));
-            },
-            Tag = "Liquid"
-        });
+                ActionASync = AsyncProcess,
+                PostActionSync = SyncProcess,
+                Context = this,
+                PriorityData = new Vector3(VX, 0, VZ),
+                PriorityResolver = (d) =>
+                {
+                    return 1f/(1f + Vector3.Distance((Vector3) d, Camera.main.transform.position.GetFlatCoord()));
+                },
+                Tag = "Liquid"
+            });
+        }
     }
 
     private bool Exist(int x, int y, int z)

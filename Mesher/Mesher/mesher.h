@@ -33,9 +33,9 @@ extern "C" __declspec(dllexport) void __stdcall MeshVoxels(
 
 int vtab(int x, int y, int z);
 
-int vtab_safe(int x, int y, int z, int shf = 0);
+int vtab_safe(int x, int y, int z);
 
-int vtab_safe(int* crd, int shf = 0);
+int vtab_safe(int* crd);
 
 bool is_voxel_visible(int* voxels, int x, int y, int z);
 

@@ -8,20 +8,30 @@ namespace CSEngine
 {
     public static class Utils
     {
-        public static bool AddOrReplace<K, V>(this Dictionary<K, V> dict, K key, V val)
+        public static bool AddOrReplace(this Dictionary<long, int> dict, long key, int val)
         {
             bool changed = false;
             if (dict.ContainsKey(key))
             {
-                if (!dict[key].Equals(val)) changed = true;
+                if (dict[key] != val) changed = true;
+                if (GlobalSettings.Active.DebugSuppressIdentityVoxelChecks)
+                {
+                    Debug.Log(dict[key] + " " + val);
+                    GlobalSettings.Active.DebugSuppressIdentityVoxelChecks = false;
+                }
                 dict[key] = val;
             }
             else
             {
                 dict.Add(key, val);
-                changed = true;
+                changed = true;                
             }            
             return changed;
+        }
+
+        public static Vector3 GetFlatCoord(this Vector3 v)
+        {
+            return new Vector3(v.x, 0, v.z);
         }
 
         public static int C2V(int c)

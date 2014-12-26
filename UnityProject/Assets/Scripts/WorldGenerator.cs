@@ -75,7 +75,7 @@ public class WorldGenerator
         return type >= 64 && type < 128;
     }
 
-    public void PlaceVoxel(int x, int y,int z, int type)
+    public void PlaceVoxel(int x, int y,int z, int type, bool overwrite = true)
     {
         //GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
         //cube.transform.position = new Vector3(x, y, z) + Vector3.one * 0.5f;
@@ -106,10 +106,14 @@ public class WorldGenerator
         }
         lock (vc.Voxels)
         {
-            bool changed = vc.Voxels.AddOrReplace(Utils.VoxelCoordToLong(x - vx, y - vy, z - vz), type);
-            if(changed)
-            { 
-                vc.ProcessingNeeded = true;
+            var key = Utils.VoxelCoordToLong(x - vx, y - vy, z - vz);
+            if (overwrite || !vc.Voxels.ContainsKey(key))
+            {
+                bool changed = vc.Voxels.AddOrReplace(key, type);
+                if (changed)
+                {
+                    vc.ProcessingNeeded = true;
+                }
             }
         }
     }
@@ -173,39 +177,60 @@ public class WorldGenerator
 
     public void GenerateVoxelsForCoord(int cx, int cz)
     {
-        var dirth = GetDirtH(cx, cz);
-        var rockh = GetRockH(cx, cz);
-        int level = Math.Max(dirth, rockh);
-        for (int h = level-1; h < 0; h++)
+        //var dirth = GetDirtH(cx, cz);
+        //var rockh = GetRockH(cx, cz);
+        //int level = Math.Max(dirth, rockh);
+
+        //for (int h = level-1; h < 0; h++)
+        //{
+        //    PlaceVoxel(cx, h, cz, 64);
+        //}
+        //if (rockh > dirth)
+        //{
+        //    for (int h = Utils.RoundV(rockh)-16; h < rockh; h++)
+        //    {
+        //        PlaceVoxel(cx, h, cz, 4);
+        //    }
+        //}
+        //else
+        //{
+        //    for (int h = Utils.RoundV(dirth)-16; h <= dirth; h++)
+        //    {
+        //        PlaceVoxel(cx, h, cz, h == dirth ? 1 : 3);
+        //    }
+        //} 
+
+        int maxLevel = GetGroundLevel(cx, cz);
+        if(maxLevel <= 0) return;
+
+        var max = Mathf.Max(maxLevel, 15);
+        for (int la = 0; la < max; la++)
         {
-            PlaceVoxel(cx, h, cz, 64);
+            int realy = la - 16;
+            var val = billow.GetValue(la/10.0, 12830.0 + cx/10.0, 29821.0 + cz/10.0);
+            int type = la == max - 1 ? 1 : 3;
+            if (val < -0.5) type = 4;
+            if (la > maxLevel) type = 64;
+            PlaceVoxel(cx, realy, cz, type);
         }
-        if (rockh > dirth)
-        {
-            for (int h = Utils.RoundV(rockh)-16; h < rockh; h++)
-            {
-                PlaceVoxel(cx, h, cz, 4);
-            }
-        }
-        else
-        {
-            for (int h = Utils.RoundV(dirth)-16; h < dirth; h++)
-            {
-                PlaceVoxel(cx, h, cz, h == dirth ? 1 : 3);
-            }
-        }                       
+
+    }
+
+    public int GetGroundLevel(int cx, int cz)
+    {
+        return Mathf.RoundToInt((float)(billow.GetValue(cx/500.0, 0, cz/500.0)*16.0 + 30.0));
     }
 
     public int GetRockH(int x, int z)
     {
-        double val = (fractal.GetValue(x/480.0, 0, z/480.0) * 96.0 - 88.0);
+        double val = (fractal.GetValue(x/480.0, 0, z/480.0) * 96.0 - 88.0)*0.5;
         if (val < 0) val = -Mathf.Pow((float)- val, 0.5f);
         return (int) val;
     }
 
     public int GetDirtH(int x, int z)
     {
-        double val = (billow.GetValue(x / 250.0, 0, z / 250.0) * 60f + 30);
+        double val = (billow.GetValue(x / 550.0, 0, z / 550.0) * 60f + 30)*0.5;
         if (val < 0) val = -Mathf.Pow((float)-val, 0.5f);
         return (int)val;
     }

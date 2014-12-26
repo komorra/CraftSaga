@@ -9,7 +9,12 @@ int vtab(int x, int y, int z)
 	return x + CS*y + CS*CS*z;
 }
 
-int vtab_safe(int x, int y, int z, int shf)
+int vtab(int* crd)
+{
+	return crd[0] + CS*crd[1] + CS*CS*crd[2];
+}
+
+int vtab_safe(int x, int y, int z)
 {
 	if (x < 0)return CS*CS*CS;
 	if (y < 0)return CS*CS*CS;
@@ -18,21 +23,21 @@ int vtab_safe(int x, int y, int z, int shf)
 	if (x >= CS)return CS*CS*CS;
 	if (y >= CS)return CS*CS*CS;
 	if (z >= CS)return CS*CS*CS;
-
-	if (shf == 1)
-	{
-		return vtab(y, z, x);
-	}
-	else if (shf == 2)
-	{
-		return vtab(z, x, y);
-	}
+	
 	return vtab(x, y, z);
 }
 
-int vtab_safe(int* crd, int shf)
+int vtab_safe(int* crd)
 {
-	return vtab_safe(crd[0], crd[1], crd[2], shf);
+	if (crd[0] < 0)return CS*CS*CS;
+	if (crd[1] < 0)return CS*CS*CS;
+	if (crd[2] < 0)return CS*CS*CS;
+
+	if (crd[0] >= CS)return CS*CS*CS;
+	if (crd[1] >= CS)return CS*CS*CS;
+	if (crd[2] >= CS)return CS*CS*CS;
+
+	return vtab(crd);
 }
 
 bool is_voxel_visible(int* voxels, int x, int y, int z)
@@ -55,7 +60,7 @@ void uvd2crd(int u, int v, int d, int dim, int* crd)
 	crd[(dim + 2) % 3] = v;
 }
 
-void uvd_conv(int u, int v, int d, int dim, int side, int* crd, int &index, int &check)
+inline void uvd_conv(int u, int v, int d, int dim, int side, int* crd, int &index, int &check)
 {
 	uvd2crd(u, v, d, dim, crd);
 	index = vtab(crd[0], crd[1], crd[2]);
@@ -67,7 +72,7 @@ void uvd_conv(int u, int v, int d, int dim, int side, int* crd, int &index, int 
 bool work_check(uint8_t* work, int *voxels, int index, int check, int setbit)
 {
 	//return ((work[index] & 1) == 1) && (voxels[check]==0) && ((work[index] & setbit) != setbit);
-	return (voxels[index] != 0) && (voxels[check] == 0) && ((work[index] & setbit) != setbit);
+	return ((work[index] & setbit) != setbit) && (voxels[index] != 0) && (voxels[check] == 0);
 }
 
 int max(int a, int b)
@@ -107,77 +112,6 @@ bool uv_rect_check(uint8_t *work, int *voxels, int dim, int side, int depth, int
 	return true;
 }
 
-//bool get_next_uv_rect(uint8_t *work, int *voxels, int dim, int side, int depth, int setbit, int &beginU, int &beginV, int &endU, int &endV)
-//{
-//	beginU = -1;
-//	beginV = -1;
-//	endU = -1;
-//	endV = -1;
-//	bool expandV = true;
-//	bool expandU = true;
-//
-//	int u, v;
-//
-//	for (u = 0; u < CS; u++)
-//	{
-//		for (v = 0; v < CS; v++)
-//		{
-//			int crd[3] = { 0, 0, 0 };
-//			int index, check;
-//			uvd_conv(u, v, depth, dim, side, crd, index, check);
-//
-//			if (work_check(work, voxels, index, check, setbit))
-//			{
-//				beginU = u;
-//				beginV = v;
-//				endV = v;
-//				endU = u;
-//				goto loopexit;
-//			}
-//		}
-//	}
-//loopexit:
-//
-//	if (beginU != -1)
-//	{
-//		for (u = beginU; u < CS; u++)
-//		{
-//			int oldU = endU;
-//			endU = u;
-//			if (!uv_rect_check(work, voxels, dim, side, depth, setbit, beginU, beginV, endU, endV))
-//			{
-//				endU = oldU;
-//				break;
-//			}
-//		}
-//
-//		for (v = beginV; v < CS; v++)
-//		{
-//			int oldV = endV;
-//			endV = v;
-//			if (!uv_rect_check(work, voxels, dim, side, depth, setbit, beginU, beginV, endU, endV))
-//			{
-//				endV = oldV;
-//				break;
-//			}
-//		}
-//
-//		for (int u = beginU; u <= endU; u++)
-//		{
-//			for (int v = beginV; v <= endV; v++)
-//			{
-//				int crd[3] = { 0, 0, 0 };
-//				int index, check;
-//				uvd_conv(u, v, depth, dim, side, crd, index, check);
-//
-//				work[index] |= setbit;
-//			}
-//		}
-//		return true;
-//	}
-//
-//	return false;
-//}
 
 bool get_next_uv_rect(uint8_t *work, int *voxels, int dim, int side, int depth, int setbit, int &beginU, int &beginV, int &endU, int &endV)
 {
@@ -189,14 +123,25 @@ bool get_next_uv_rect(uint8_t *work, int *voxels, int dim, int side, int depth, 
 	bool expandU = true;
 
 	int u, v;
+	int crd[3] = { 0, 0, 0 };
+	int index, check;
+	int dimu = (dim + 1) % 3;
+	int dimv = (dim + 2) % 3;
+	//crd[dim] = depth;
 
 	for (u = 0; u < CS; u++)
 	{
+		//if (u < beginU)continue;
 		for (v = 0; v < CS; v++)
-		{
-			int crd[3] = { 0, 0, 0 };
-			int index, check;
-			uvd_conv(u, v, depth, dim, side, crd, index, check);
+		{				
+			//if (v < beginV)continue;
+			//uvd_conv(u, v, depth, dim, side, crd, index, check);			
+			crd[dim] = depth;
+			crd[dimu] = u;
+			crd[dimv] = v;
+			index = vtab(crd);
+			crd[dim] += side;
+			check = vtab_safe(crd);
 
 			if (work_check(work, voxels, index, check, setbit))
 			{
@@ -355,7 +300,7 @@ void dump_types(int* voxels, vector3* vptr, vector3* nptr, int *tempPatch, int &
 
 void make_texture(int* voxels, vector3* vertices, vector3* normals, vector2* uvs, int* tris, int vcount, int* tex, int* texw, int* texh)
 {
-	const int tempSize = 256;
+	const int tempSize = 512;
 
 	int *tempTex = new int[tempSize*tempSize];
 	int curh = 1;
@@ -413,6 +358,8 @@ void make_texture(int* voxels, vector3* vertices, vector3* normals, vector2* uvs
 				iter++;*/
 				if (curw > curh) curh <<= 1;
 				else curw <<= 1;
+				if (curw > tempSize) break;
+				if (curh > tempSize) break;
 			}
 		} while (!match);
 

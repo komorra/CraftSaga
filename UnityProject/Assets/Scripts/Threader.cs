@@ -16,6 +16,7 @@ public class Threader : MonoBehaviour {
             get { return PriorityResolver(PriorityData); }
         }
 
+        public bool SkipAsync = false; //if set, only sync processing will be done
         public object PriorityData;
         public Func<object, double> PriorityResolver; 
         public Func<IProcessable, string, object> ActionASync;
@@ -47,6 +48,11 @@ public class Threader : MonoBehaviour {
         get { return workingCount; }
     }
 
+    public int QueueCount
+    {
+        get { return Items.Count; }
+    }
+
     public int CPS
     {
         get
@@ -67,21 +73,21 @@ public class Threader : MonoBehaviour {
 	void Start ()
 	{
 	    Active = this;
-	    InvokeRepeating("QueueCheck", 0, 0.04f);
+	    InvokeRepeating("QueueCheck", 0, 0.06f);
 	}
 
     public void Enqueue(Item item)
     {
-        if (!Items.Any(o => o.Context == item.Context && o.Tag == item.Tag))
+        if (!Items.Any(o => o.Context == item.Context && o.Tag == item.Tag) || (item.Context == null && Items.All(o => o.Tag != item.Tag)))
         {
             Items.Add(item);
         }
     }
 
     void QueueCheck()
-    {
-        var unStarted = Items.Where(o => !o.IsWorking).ToArray();
-        if (workingCount < maxWorkingCount && unStarted.Length > 0)
+    {        
+        var unStarted = Items.Where(o => !o.IsWorking && !o.SkipAsync).ToArray();
+        while (workingCount < maxWorkingCount && unStarted.Any())
         {
             var item = unStarted.Max();
             item.Data = null;
@@ -94,30 +100,36 @@ public class Threader : MonoBehaviour {
                 watch.Stop();
                 LastGenerationTime = watch.Elapsed;               
             });
-            item.InternalThread.IsBackground = true;
+            item.InternalThread.IsBackground = true;            
             workingCount++;
             item.IsWorking = true;
             item.InternalThread.Start();
             item.InternalStartTime = DateTime.Now;
+            unStarted = Items.Where(o => !o.IsWorking && !o.SkipAsync).ToArray();
         }
+        
         var doneItems = Items.Where(o => o.Data != null);
         if (doneItems.Any())
         {
             var doneItem = doneItems.Max();
             doneItem.PostActionSync(doneItem.Context, doneItem.Tag, doneItem.Data);
             Items.Remove(doneItem);
-            doneItem.Context.IsProcessing = false;
-            workingCount--;
-            chunksProcessed++;
-        }
-        var overrunItems = Items.Where(o => DateTime.Now - o.InternalStartTime > TimeSpan.FromSeconds(4)).ToArray();
+            if (doneItem.Context != null) doneItem.Context.IsProcessing = false;
+            if (!doneItem.SkipAsync)
+            {
+                workingCount--;
+            }
+            chunksProcessed++;            
+        }        
+
+        var overrunItems = Items.Where(o => DateTime.Now - o.InternalStartTime > TimeSpan.FromSeconds(5)).ToArray();
         foreach (var oi in overrunItems)
         {
             if (oi.InternalThread != null && oi.InternalThread.ThreadState == ThreadState.Running)
             {
                 oi.InternalThread.Abort();
             }
-            oi.Context.IsProcessing = false;
+            if(oi.Context!=null) oi.Context.IsProcessing = false;
             Items.Remove(oi);
             workingCount--;
         }

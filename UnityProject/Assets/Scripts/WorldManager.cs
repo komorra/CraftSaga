@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using CSEngine;
+using UnityEngine;
 using System.Collections;
 
 public class WorldManager : MonoBehaviour
@@ -24,13 +25,57 @@ public class WorldManager : MonoBehaviour
 	    //Generator.GenerateStandard();
 	    //Generator.GenerateSimple();
 	    //Generator.GenerateTest();
-	    InvokeRepeating("Generate", 0, 1);
+	    InvokeRepeating("Generate", 0, 2);
         //Generate();
 	}
 
+    private void SyncGenerate(IProcessable c, string tag, object d)
+    {
+        var crd = d as int[];
+        int vx, vy, vz;
+        Utils.CoordChunkToVoxel(crd[0], 0, crd[1], out vx, out vy, out vz);
+        for (int la = 0; la < 16; la++)
+        {
+            for (int lb = 0; lb < 16; lb++)
+            {
+                Generator.GenerateVoxelsForCoord(vx + la, vz + lb);
+            }
+        }
+    }
+
     void Generate()
     {
-        GenerateStandard();
+        int x = Mathf.RoundToInt(Camera.main.transform.position.x);
+        int z = Mathf.RoundToInt(Camera.main.transform.position.z);
+        int cx, cy, cz;
+        Utils.CoordVoxelToChunk(x, 0, z, out cx, out cy, out cz);
+
+        int range = 8;
+        for (int la = -range; la <= range; la++)
+        {
+            for (int lb = -range; lb <= range; lb++)
+            {
+                int tcx = cx + la;
+                int tcz = cz + lb;
+
+                var flatKey = Utils.VoxelCoordToLong(tcx, 0, tcz);
+                if (!VoxelContainer.FlatContainers.ContainsKey(flatKey))
+                {
+                    Threader.Active.Enqueue(new Threader.Item()
+                    {
+                        Tag = string.Format("{0}:{1}", tcx, tcz),
+                        SkipAsync = true,
+                        Data = new int[] {tcx, tcz},
+                        PostActionSync = SyncGenerate,
+                        PriorityData = new Vector3(tcx, 0, tcz),
+                        PriorityResolver = (d) =>
+                        {
+                            return 1f / (1f + Vector3.Distance((Vector3)d, Camera.main.transform.position.GetFlatCoord()/16f)) - 2f;
+                        },
+                    });
+                }
+            }
+        }
     }
 
     public void GenerateStandard()
