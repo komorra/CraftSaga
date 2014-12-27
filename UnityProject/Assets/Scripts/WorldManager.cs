@@ -25,7 +25,7 @@ public class WorldManager : MonoBehaviour
 	    //Generator.GenerateStandard();
 	    //Generator.GenerateSimple();
 	    //Generator.GenerateTest();
-	    InvokeRepeating("Generate", 0, 2);
+	    InvokeRepeating("Generate", 0.1f, 3);
         //Generate();
 	}
 
@@ -50,7 +50,7 @@ public class WorldManager : MonoBehaviour
         int cx, cy, cz;
         Utils.CoordVoxelToChunk(x, 0, z, out cx, out cy, out cz);
 
-        int range = 8;
+        int range = Mathf.FloorToInt(GlobalSettings.Active.MaxVisibilityRadius/16f);
         for (int la = -range; la <= range; la++)
         {
             for (int lb = -range; lb <= range; lb++)
@@ -58,21 +58,28 @@ public class WorldManager : MonoBehaviour
                 int tcx = cx + la;
                 int tcz = cz + lb;
 
+                if (Vector3.Distance(new Vector3(tcx, 0, tcz), Camera.main.transform.position.GetFlatCoord()/16f) >
+                    GlobalSettings.Active.MaxVisibilityRadius) continue;
+
                 var flatKey = Utils.VoxelCoordToLong(tcx, 0, tcz);
                 if (!VoxelContainer.FlatContainers.ContainsKey(flatKey))
                 {
-                    Threader.Active.Enqueue(new Threader.Item()
+                    if (!Threader.Active.Enqueue(new Threader.Item()
                     {
                         Tag = string.Format("{0}:{1}", tcx, tcz),
                         SkipAsync = true,
                         Data = new int[] {tcx, tcz},
                         PostActionSync = SyncGenerate,
                         PriorityData = new Vector3(tcx, 0, tcz),
+                        PriorityThreshold = -GlobalSettings.Active.MaxVisibilityRadius - 1000,
                         PriorityResolver = (d) =>
                         {
-                            return 1f / (1f + Vector3.Distance((Vector3)d, Camera.main.transform.position.GetFlatCoord()/16f)) - 2f;
+                            return -Vector3.Distance((Vector3) d, Camera.main.transform.position.GetFlatCoord()/16f) - 1000;
                         },
-                    });
+                    }))
+                    {
+                        return;
+                    }
                 }
             }
         }

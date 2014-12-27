@@ -233,6 +233,10 @@ public class VoxelContainer : MonoBehaviour, IProcessable
         Containers.Remove(Utils.VoxelCoordToLong(X, Y, Z));
         long flatkey = Utils.VoxelCoordToLong(X, 0, Z);
         FlatContainers[flatkey].Remove(this);
+        if (FlatContainers[flatkey].Count == 0)
+        {
+            FlatContainers.Remove(flatkey);
+        }
     }
 
     void StateCheck()
@@ -244,7 +248,7 @@ public class VoxelContainer : MonoBehaviour, IProcessable
         }
         //Debug.Log(Vector3.Distance(new Vector3(VX, VY, VZ), Camera.main.transform.position));	    	    
         Vector3 cam = Camera.main.transform.position;
-        if (Vector2.Distance(new Vector2(VX, VZ), new Vector2(cam.x, cam.z)) > 100)
+        if (Vector2.Distance(new Vector2(VX, VZ), new Vector2(cam.x, cam.z)) > GlobalSettings.Active.MaxVisibilityRadius)
         {
             Unregister();
             Destroy(gameObject);
@@ -443,10 +447,11 @@ public class VoxelContainer : MonoBehaviour, IProcessable
                 ActionASync = AsyncProcess,
                 PostActionSync = SyncProcess,
                 Context = this,
-                PriorityData = new Vector3(VX, VY, VZ),
+                PriorityData = new Vector3(VX, 0, VZ),
+                PriorityThreshold = -GlobalSettings.Active.MaxVisibilityRadius,
                 PriorityResolver = (d) =>
                 {
-                    return 1f/(1f + Vector3.Distance((Vector3) d, Camera.main.transform.position));
+                    return -Vector3.Distance((Vector3) d, Camera.main.transform.position.GetFlatCoord());
                 },
                 Tag = "Terrain"
             });
@@ -460,9 +465,10 @@ public class VoxelContainer : MonoBehaviour, IProcessable
                 PostActionSync = SyncProcess,
                 Context = this,
                 PriorityData = new Vector3(VX, 0, VZ),
+                PriorityThreshold = -GlobalSettings.Active.MaxVisibilityRadius,
                 PriorityResolver = (d) =>
                 {
-                    return 1f/(1f + Vector3.Distance((Vector3) d, Camera.main.transform.position.GetFlatCoord()));
+                    return -Vector3.Distance((Vector3) d, Camera.main.transform.position.GetFlatCoord());
                 },
                 Tag = "Liquid"
             });

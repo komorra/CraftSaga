@@ -17,6 +17,7 @@ public class Threader : MonoBehaviour {
         }
 
         public bool SkipAsync = false; //if set, only sync processing will be done
+        public double PriorityThreshold = double.NegativeInfinity; //threshold below the item would be removed
         public object PriorityData;
         public Func<object, double> PriorityResolver; 
         public Func<IProcessable, string, int, object> ActionASync;
@@ -53,7 +54,7 @@ public class Threader : MonoBehaviour {
 
     public static Threader Active { get; private set; }
 
-    private List<Item> Items = new List<Item>();
+    private List<Item> Items = new List<Item>();    
     private int workingCount = 0;
     public const int MaxWorkingCount = 5;
     private int chunksProcessed = 0;
@@ -94,7 +95,7 @@ public class Threader : MonoBehaviour {
 	{
 	    isPlaying = true;
 	    Active = this;
-	    InvokeRepeating("QueueCheck", 0, 0.04f);
+	    InvokeRepeating("QueueCheck", 0, 0.03f);
 	    for (int la = 0; la < MaxWorkingCount; la++)
 	    {
 	        threads[la] = new Thread(ThreadProc);
@@ -135,16 +136,20 @@ public class Threader : MonoBehaviour {
         UnityEngine.Debug.Log("Thread " + n + " has exit.");
     }
 
-    public void Enqueue(Item item)
+    public bool Enqueue(Item item)
     {
+        //if (Items.Count > 256) return false;
         if (!Items.Any(o => o.Context == item.Context && o.Tag == item.Tag) || (item.Context == null && Items.All(o => o.Tag != item.Tag)))
-        {
-            Items.Add(item);
+        {                                    
+            Items.Add(item);                        
         }
+        return true;
     }
 
     void QueueCheck()
     {
+        Items.RemoveAll(o => o.Priority < o.PriorityThreshold && o.IsUnstarted);
+
         var unStarted = Items.Where(o => o.IsUnstarted);
         while (WorkingCount < MaxWorkingCount && unStarted.Any())
         {
@@ -155,10 +160,7 @@ public class Threader : MonoBehaviour {
             {
                 break;
             }
-            else
-            {
-                threadItems[freeSlot] = item;
-            }
+            threadItems[freeSlot] = item;            
         }
         
         var doneItems = Items.Where(o => o.Data != null);
