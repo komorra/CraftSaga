@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 using System.Collections;
 using System.Runtime.InteropServices;
 
@@ -9,13 +10,13 @@ public static class Mesher
         int voxelCount,
         long[] coords,
         int[] types,
-        Vector3[] vertices,
-        Vector3[] normals,
-        Vector2[] uvs,
-        int[] tris,
+        IntPtr vertices,
+        IntPtr normals,
+        IntPtr uvs,
+        IntPtr tris,
         ref int vertexCount,
         ref int indexCount,
-        int[] texture,
+        IntPtr texture,
         ref int texW,
         ref int texH,
         [MarshalAs(UnmanagedType.I1)] bool liquid

@@ -10,7 +10,90 @@ using System.Collections;
 [RequireComponent(typeof(MeshRenderer), typeof(MeshFilter))]
 public class VoxelContainer : MonoBehaviour, IProcessable
 {
+    public class Data
+    {
+        public IntPtr Vertices;
+        public IntPtr Normals;
+        public IntPtr UVs;
+        public IntPtr Tris;
+        public IntPtr Tex;
 
+        public Data()
+        {
+            const int vmax = 4*6*16*16*16/2;
+            const int imax = 6*6*16*16*16/2;
+            const int texsize = 512;
+            int v3 = Marshal.SizeOf(typeof (Vector3));
+            int v2 = Marshal.SizeOf(typeof (Vector2));
+            int i = sizeof (int);
+
+            Vertices = Marshal.AllocHGlobal(vmax*v3);
+            Normals = Marshal.AllocHGlobal(vmax*v3);
+            UVs = Marshal.AllocHGlobal(vmax*v2);
+            Tris = Marshal.AllocHGlobal(imax*i);
+            Tex = Marshal.AllocHGlobal(texsize*texsize*i);
+        }
+
+        public Vector3[] GetVertices(int vcount)
+        {
+            var arr = new Vector3[vcount];
+            IntPtr temp = Vertices;
+            int siz = Marshal.SizeOf(typeof (Vector3));
+
+            for (int la = 0; la < arr.Length; la++)
+            {
+                arr[la] = (Vector3)Marshal.PtrToStructure(temp, typeof (Vector3));
+                temp = new IntPtr(temp.ToInt64() + siz);
+            }
+            return arr;
+        }
+
+        public Vector3[] GetNormals(int vcount)
+        {
+            var arr = new Vector3[vcount];
+            IntPtr temp = Normals;
+            int siz = Marshal.SizeOf(typeof(Vector3));
+
+            for (int la = 0; la < arr.Length; la++)
+            {
+                arr[la] = (Vector3)Marshal.PtrToStructure(temp, typeof(Vector3));
+                temp = new IntPtr(temp.ToInt64() + siz);
+            }
+            return arr;
+        }
+
+        public Vector2[] GetUVs(int vcount)
+        {
+            var arr = new Vector2[vcount];
+            IntPtr temp = UVs;
+            int siz = Marshal.SizeOf(typeof(Vector2));
+
+            for (int la = 0; la < arr.Length; la++)
+            {
+                arr[la] = (Vector2)Marshal.PtrToStructure(temp, typeof(Vector2));
+                temp = new IntPtr(temp.ToInt64() + siz);
+            }
+            return arr;
+        }
+
+        public int[] GetTris(int icount)
+        {
+            var arr = new int[icount];
+
+            Marshal.Copy(Tris, arr, 0, icount);
+                        
+            return arr;
+        }
+
+        public int[] GetTex(int texw, int texh)
+        {
+            var arr = new int[texw*texh];
+            Marshal.Copy(Tex, arr, 0, arr.Length);
+            return arr;
+        }
+    }
+
+    private static Data[] datas = new Data[Threader.MaxWorkingCount];
     public static Dictionary<long, VoxelContainer> Containers = new Dictionary<long, VoxelContainer>();
     public static Dictionary<long, List<VoxelContainer>> FlatContainers = new Dictionary<long, List<VoxelContainer>>();
     public Dictionary<long,int> Voxels = new Dictionary<long, int>();
@@ -80,12 +163,17 @@ public class VoxelContainer : MonoBehaviour, IProcessable
 
     private Texture3D AOTexture;
 
+    static VoxelContainer()
+    {
+        for (int la = 0; la < datas.Length; la++)
+        {
+            datas[la] = new Data();
+        }
+    }
+
 	// Use this for initialization
 	void Start ()
-	{
-	    //Process();
-        //rigidbody.isKinematic = true;
-        //rigidbody.useGravity = false;
+	{	    
 	    InvokeRepeating("StateCheck", 0.1f, 0.1f);
 	}
 
@@ -163,7 +251,7 @@ public class VoxelContainer : MonoBehaviour, IProcessable
         }
     }    
 
-    private object AsyncProcess(IProcessable c, string tag)
+    private object AsyncProcess(IProcessable c, string tag, int thread)
     {
         var container = c as VoxelContainer;
         Dictionary<long, int> Voxels = null;
@@ -177,32 +265,22 @@ public class VoxelContainer : MonoBehaviour, IProcessable
         }
 
         if (Voxels.Count == 0) return null;
-
-        Vector3[] vertices = new Vector3[4 * 16 * 16 * 16 * 6 / 2];
-        Vector3[] normals = new Vector3[4 * 16 * 16 * 16 * 6 / 2];
-        Vector2[] uvs = new Vector2[4 * 16 * 16 * 16 * 6 / 2];
-        int[] tris = new int[6 * 16 * 16 * 16 * 6 / 2];
+        
         int vcount = 0;
         int icount = 0;
         int texw = 0;
-        int texh = 0;
-        int[] itex = new int[512 * 512];
+        int texh = 0;        
 
         var keys = Voxels.Keys.ToArray();
         var vals = Voxels.Values.ToArray();
+        var data = datas[thread];
 
         Stopwatch watch = new Stopwatch();
         watch.Start();
         Mesher.MeshVoxels(Voxels.Count, keys, vals,
-            vertices, normals, uvs, tris, ref vcount, ref icount, itex, ref texw, ref texh, tag=="Liquid");
+            data.Vertices, data.Normals, data.UVs, data.Tris, ref vcount, ref icount, data.Tex, ref texw, ref texh, tag=="Liquid");
         watch.Stop();
-        UnityEngine.Debug.Log(watch.Elapsed);
-
-        Array.Resize(ref vertices, vcount);
-        Array.Resize(ref normals, vcount);
-        Array.Resize(ref uvs, vcount);
-        Array.Resize(ref tris, icount);
-        Array.Resize(ref itex, texw * texh);
+        UnityEngine.Debug.Log(watch.Elapsed);        
 
         if (tag == "Terrain")
         {
@@ -222,7 +300,7 @@ public class VoxelContainer : MonoBehaviour, IProcessable
             }
         }
 
-        return new object[] { vertices, normals, uvs, tris, texw, texh, itex };
+        return new object[] { data.GetVertices(vcount), data.GetNormals(vcount), data.GetUVs(vcount), data.GetTris(icount), texw, texh, data.GetTex(texw, texh) };
     }
 
     private void SyncProcess(IProcessable c, string tag, object d)

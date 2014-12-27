@@ -19,7 +19,7 @@ public class Threader : MonoBehaviour {
         public bool SkipAsync = false; //if set, only sync processing will be done
         public object PriorityData;
         public Func<object, double> PriorityResolver; 
-        public Func<IProcessable, string, object> ActionASync;
+        public Func<IProcessable, string, int, object> ActionASync;
         public Action<IProcessable,string, object> PostActionSync; 
         public object Data;
         public IProcessable Context;
@@ -32,20 +32,40 @@ public class Threader : MonoBehaviour {
         {
             return Priority.CompareTo(other.Priority);
         }
+
+        public bool IsDone
+        {
+            get { return Data != null; }
+        }
+
+        public bool IsUnstarted
+        {
+            get { return !IsWorking && !SkipAsync && !IsAsyncFinished; }
+        }
+
+        public bool IsOverrun
+        {
+            get { return DateTime.Now - InternalStartTime > TimeSpan.FromSeconds(5); }
+        }
+
+        public bool IsAsyncFinished { get; set; }
     }
 
     public static Threader Active { get; private set; }
 
     private List<Item> Items = new List<Item>();
     private int workingCount = 0;
-    private const int maxWorkingCount = 5;
+    public const int MaxWorkingCount = 5;
     private int chunksProcessed = 0;
     private DateTime lastCPSTime = DateTime.Now;
     private int cps; //Chunks per second
+    private Thread[] threads = new Thread[MaxWorkingCount];
+    private Item[] threadItems = new Item[MaxWorkingCount];
+    private bool isPlaying = true;
 
     public int WorkingCount
     {
-        get { return workingCount; }
+        get { return threadItems.Count(o => o!=null && o.IsWorking); }
     }
 
     public int QueueCount
@@ -72,9 +92,48 @@ public class Threader : MonoBehaviour {
     // Use this for initialization
 	void Start ()
 	{
+	    isPlaying = true;
 	    Active = this;
-	    InvokeRepeating("QueueCheck", 0, 0.06f);
+	    InvokeRepeating("QueueCheck", 0, 0.04f);
+	    for (int la = 0; la < MaxWorkingCount; la++)
+	    {
+	        threads[la] = new Thread(ThreadProc);
+	        threads[la].IsBackground = true;
+	        threads[la].Start(la);
+	    }
 	}
+
+    void OnDestroy()
+    {
+        isPlaying = false;
+    }
+
+    private void ThreadProc(object num)
+    {
+        Stopwatch watch = new Stopwatch();
+        var n = (int) num;
+        while (isPlaying)
+        {
+            var ti = threadItems[n];
+            if (ti != null && ti.IsUnstarted)
+            {
+                ti.InternalStartTime = DateTime.Now;
+                ti.IsWorking = true;
+                watch.Reset();
+                watch.Start();
+                ti.Data = ti.ActionASync(ti.Context, ti.Tag, n);
+                watch.Stop();
+                LastGenerationTime = watch.Elapsed;
+                ti.IsAsyncFinished = true;
+                ti.IsWorking = false;
+            }
+            else
+            {
+                Thread.Sleep(5);
+            }
+        }
+        UnityEngine.Debug.Log("Thread " + n + " has exit.");
+    }
 
     public void Enqueue(Item item)
     {
@@ -85,27 +144,21 @@ public class Threader : MonoBehaviour {
     }
 
     void QueueCheck()
-    {        
-        var unStarted = Items.Where(o => !o.IsWorking && !o.SkipAsync).ToArray();
-        while (workingCount < maxWorkingCount && unStarted.Any())
+    {
+        var unStarted = Items.Where(o => o.IsUnstarted);
+        while (WorkingCount < MaxWorkingCount && unStarted.Any())
         {
             var item = unStarted.Max();
             item.Data = null;
-            item.InternalThread = new Thread(() =>
+            int freeSlot = threadItems.ToList().FindIndex(o => o==null || (o.IsDone && o.IsAsyncFinished));
+            if (freeSlot < 0)
             {
-                item.Context.IsProcessing = true;
-                Stopwatch watch = new Stopwatch();
-                watch.Start();
-                item.Data = item.ActionASync(item.Context, item.Tag);
-                watch.Stop();
-                LastGenerationTime = watch.Elapsed;               
-            });
-            item.InternalThread.IsBackground = true;            
-            workingCount++;
-            item.IsWorking = true;
-            item.InternalThread.Start();
-            item.InternalStartTime = DateTime.Now;
-            unStarted = Items.Where(o => !o.IsWorking && !o.SkipAsync).ToArray();
+                break;
+            }
+            else
+            {
+                threadItems[freeSlot] = item;
+            }
         }
         
         var doneItems = Items.Where(o => o.Data != null);
@@ -114,11 +167,7 @@ public class Threader : MonoBehaviour {
             var doneItem = doneItems.Max();
             doneItem.PostActionSync(doneItem.Context, doneItem.Tag, doneItem.Data);
             Items.Remove(doneItem);
-            if (doneItem.Context != null) doneItem.Context.IsProcessing = false;
-            if (!doneItem.SkipAsync)
-            {
-                workingCount--;
-            }
+            if (doneItem.Context != null) doneItem.Context.IsProcessing = false;            
             chunksProcessed++;            
         }        
 
