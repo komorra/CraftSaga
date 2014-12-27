@@ -29,7 +29,7 @@ public class GenTree : IGenerable
                 {
                     if (new Vector3(la, lb, lc).magnitude < rad)
                     {
-                        placeVoxel(x + la, y + lb + barkH, z + lc, 2048, false);
+                        placeVoxel(x + la, y + lb + barkH, z + lc, 2048 + y%3, false);
                     }
                 }
             }

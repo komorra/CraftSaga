@@ -1,7 +1,7 @@
 ﻿Shader "Custom/SkyShader" {
 	Properties {
         _MainTex ("Base (RGB)", 2D) = "white" {}
-		_HorizonColor ("Horizon Color", Color) = (0.1,0.2,0.6,1)
+		_HorizonColor ("Horizon Color", Color) = (0.05,0.1,0.3,1)
 		_ZenithColor ("Zenith Color", Color) = (0.35,0.8,1,1)
     }
     SubShader {

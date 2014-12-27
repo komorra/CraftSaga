@@ -182,7 +182,7 @@ public class WorldGenerator
     public void GenerateVoxelsForCoord(int cx, int cz)
     {           
         int maxLevel = GetGroundLevel(cx, cz);
-        if(maxLevel <= 0) return;
+        if (maxLevel <= 0) maxLevel = 1;
 
         var bil = billow.GetValue(cx/100.0, 0, cz/100.0)*5.0;
 
