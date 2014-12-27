@@ -8,11 +8,12 @@
 		_Cutoff ("Alpha cutoff", Range(0,1)) = 0.5
 		_Multiplier("Color Multiplier",Range(1,10)) = 1.0
 		_AO ("Ambient Occlusion", 3D) = "white" 
+		_ChunkPos ("Chunk Position", Vector) = (0,0,0)
 	}
 	SubShader {
 		
 		AlphaTest Greater 0.5
-		
+		Cull Off
 		
 
 		Tags { "Queue"="AlphaTest" "RenderType"="TransparentCutout"}
@@ -30,6 +31,7 @@
 		sampler2D _SideSkin;
 		sampler2D _BottomSkin;
 		sampler3D _AO;
+		float3 _ChunkPos;
 
 		struct Input {
 			float2 uv_MainTex;
@@ -118,12 +120,13 @@
 			//if(ct.a < 0.5) ct.rgb = float3(1,0,0);	
 			ct *=  _Color * _Multiplier;		
 			
-			float3 wp= IN.worldPos-0.0001;
+			float3 wp= IN.worldPos-0.001-_ChunkPos;
 			//wp.x -= 1.0;
 			//wp.y -= 1.0;
 			//wp.z -= 1.0;
 			
-			float ao = tex3D(_AO, mod(wp.xyz/16.0)).r;
+			float ao = tex3D(_AO, wp.xyz/16.0).r;
+			//ao = 1;
 
 			o.Albedo = ct.rgb *  pow(saturate(ao+0.05),4.3);
 			o.Alpha = ct.a;

@@ -63,6 +63,7 @@ public class Threader : MonoBehaviour {
     private Thread[] threads = new Thread[MaxWorkingCount];
     private Item[] threadItems = new Item[MaxWorkingCount];
     private bool isPlaying = true;
+    private Stopwatch syncWatch = new Stopwatch();
 
     public int WorkingCount
     {
@@ -162,8 +163,9 @@ public class Threader : MonoBehaviour {
             }
             threadItems[freeSlot] = item;            
         }
-        
+                
         var doneItems = Items.Where(o => o.Data != null);
+        
         if (doneItems.Any())
         {
             var doneItem = doneItems.Max();

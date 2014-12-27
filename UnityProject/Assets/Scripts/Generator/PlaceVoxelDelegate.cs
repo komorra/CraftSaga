@@ -1,0 +1,1 @@
+﻿public delegate void PlaceVoxelDelegate(int x, int y, int z, int type, bool overwrite);

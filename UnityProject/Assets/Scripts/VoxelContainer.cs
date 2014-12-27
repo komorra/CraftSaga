@@ -374,7 +374,7 @@ public class VoxelContainer : MonoBehaviour, IProcessable
             liGo.renderer.material.SetTexture("_TopSkin", container.TopTexture);
             liGo.renderer.material.SetTexture("_SideSkin", container.SideTexture);
             liGo.renderer.material.SetTexture("_BottomSkin", container.BottomTexture);
-            liGo.renderer.material.SetTexture("_AO", container.AOTexture);
+            liGo.renderer.material.SetTexture("_AO", container.AOTexture);            
         }
         else if (tag == "Terrain")
         {
@@ -433,6 +433,7 @@ public class VoxelContainer : MonoBehaviour, IProcessable
             container.renderer.material.SetTexture("_SideSkin", container.SideTexture);
             container.renderer.material.SetTexture("_BottomSkin", container.BottomTexture);
             container.renderer.material.SetTexture("_AO", container.AOTexture);
+            container.renderer.material.SetVector("_ChunkPos", new Vector4(VX, VY, VZ));
         }
     }
 

@@ -7,7 +7,7 @@ using System.Text;
 using CSEngine;
 using LibNoise.Unity.Generator;
 using UnityEngine;
-
+using NoiseUtils = LibNoise.Unity.Utils;
 
 [Serializable]
 public class WorldGenerator
@@ -17,6 +17,8 @@ public class WorldGenerator
 
     private Billow billow;
     private RiggedMultifractal fractal;
+    private List<IGenerable> generables = new List<IGenerable>();
+    private bool sygnalize = true; //Should we mark containers for regeneration/processing?
 
     public void Initialize()
     {
@@ -28,9 +30,11 @@ public class WorldGenerator
         billow.Frequency = UnityEngine.Random.value + 0.5;
         fractal.Frequency = UnityEngine.Random.value + 0.5;
 
-        int x,y,z;
-        Utils.LongToVoxelCoord(38655688717L, out x, out y, out z);
-        Debug.LogWarning("" + x + " " + y + " " + z);
+        //int x,y,z;
+        //Utils.LongToVoxelCoord(38655688717L, out x, out y, out z);
+        //Debug.LogWarning("" + x + " " + y + " " + z);
+
+        generables.Add(new GenTree());
     }
 
     public bool IsContactVoxel(int x, int y, int z)
@@ -110,7 +114,7 @@ public class WorldGenerator
             if (overwrite || !vc.Voxels.ContainsKey(key))
             {
                 bool changed = vc.Voxels.AddOrReplace(key, type);
-                if (changed)
+                if (changed && sygnalize)
                 {
                     vc.ProcessingNeeded = true;
                 }
@@ -176,49 +180,39 @@ public class WorldGenerator
     }
 
     public void GenerateVoxelsForCoord(int cx, int cz)
-    {
-        //var dirth = GetDirtH(cx, cz);
-        //var rockh = GetRockH(cx, cz);
-        //int level = Math.Max(dirth, rockh);
-
-        //for (int h = level-1; h < 0; h++)
-        //{
-        //    PlaceVoxel(cx, h, cz, 64);
-        //}
-        //if (rockh > dirth)
-        //{
-        //    for (int h = Utils.RoundV(rockh)-16; h < rockh; h++)
-        //    {
-        //        PlaceVoxel(cx, h, cz, 4);
-        //    }
-        //}
-        //else
-        //{
-        //    for (int h = Utils.RoundV(dirth)-16; h <= dirth; h++)
-        //    {
-        //        PlaceVoxel(cx, h, cz, h == dirth ? 1 : 3);
-        //    }
-        //} 
-
+    {           
         int maxLevel = GetGroundLevel(cx, cz);
         if(maxLevel <= 0) return;
+
+        var bil = billow.GetValue(cx/100.0, 0, cz/100.0)*5.0;
 
         var max = Mathf.Max(maxLevel, 15);
         for (int la = 0; la < max; la++)
         {
             int realy = la - 16;
-            var val = billow.GetValue(la/10.0, 12830.0 + cx/10.0, 29821.0 + cz/10.0);
+            //var val = billow.GetValue(la/10.0, 12830.0 + cx/10.0, 29821.0 + cz/10.0);
             int type = la == max - 1 ? 1 : 3;
-            if (val < -0.5) type = 4;
+            if (maxLevel > 10+16+bil) type = 4;
+            if (maxLevel < 3+16+bil) type = 6;
+            //if (val < -0.5) type = 4;
             if (la > maxLevel) type = 64;
             PlaceVoxel(cx, realy, cz, type);
         }
-
+        max -= 16;
+        sygnalize = false;
+        foreach (var gen in generables)
+        {
+            if (gen.ConditionMet(cx, max, cz, billow))
+            {
+                gen.Generate(PlaceVoxel, cx, max, cz);
+            }
+        }
+        sygnalize = true;
     }
 
     public int GetGroundLevel(int cx, int cz)
     {
-        return Mathf.RoundToInt((float)(billow.GetValue(cx/500.0, 0, cz/500.0)*16.0 + 30.0));
+        return Mathf.RoundToInt((float)(fractal.GetValue(cx/100.0, 0, cz/100.0)*20.0 + 20.0));
     }
 
     public int GetRockH(int x, int z)
