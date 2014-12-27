@@ -7,6 +7,7 @@ public class GlobalSettings : MonoBehaviour {
 
 
     public bool DebugSuppressIdentityVoxelChecks = false;
+    public float MaxVisibilityRadius = 150;
 
 	// Use this for initialization
 	void Start ()
