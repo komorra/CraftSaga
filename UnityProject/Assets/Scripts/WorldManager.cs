@@ -11,6 +11,7 @@ public class WorldManager : MonoBehaviour
     public Texture2D TopTexture;
     public Texture2D SideTexture;
     public Texture2D BottomTexture;
+    public Texture2D BreakTexture;
 
     public WorldGenerator Generator = new WorldGenerator();
 

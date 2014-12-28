@@ -15,5 +15,6 @@ public class GlobalSettings : MonoBehaviour {
 
 	    Active = this;
 
+	    Screen.lockCursor = true;
 	}
 }

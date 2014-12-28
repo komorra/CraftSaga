@@ -79,6 +79,33 @@ public class WorldGenerator
         return type >= 64 && type < 128;
     }
 
+    public void PlaceDamage(int x, int y, int z, float amount)
+    {
+        int cx, cy, cz;
+        Utils.CoordVoxelToChunk(x, y, z, out cx, out cy, out cz, ChunkSize);
+        int vx, vy, vz;
+        Utils.CoordChunkToVoxel(cx, cy, cz, out vx, out vy, out vz);
+        VoxelContainer vc = null;
+        if (VoxelContainer.Containers.TryGetValue(Utils.VoxelCoordToLong(cx, cy, cz), out vc))
+        {
+            var key = Utils.VoxelCoordToLong(x - vx, y - vy, z - vz);
+            
+            if (vc.Damages.ContainsKey(key))
+            {
+                vc.Damages[key] += amount;
+            }
+            else
+            {
+                vc.Damages.Add(key, amount);
+            }
+            vc.BreaksProcessingNeeded = true;
+            if (vc.Damages[key] > 1)
+            {
+                PlaceVoxel(x, y, z, 0, true);
+            }
+        }        
+    }
+
     public void PlaceVoxel(int x, int y,int z, int type, bool overwrite = true)
     {
         //GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -100,6 +127,7 @@ public class WorldGenerator
             vc.BottomTexture = WorldManager.Active.BottomTexture;
             vc.Shader = WorldManager.Active.VoxelShader;
             vc.LiquidShader = WorldManager.Active.LiquidShader;
+            vc.BreakTexture = WorldManager.Active.BreakTexture;
 
             vc.X = cx;
             vc.Y = cy;
@@ -111,7 +139,15 @@ public class WorldGenerator
         lock (vc.Voxels)
         {
             var key = Utils.VoxelCoordToLong(x - vx, y - vy, z - vz);
-            if (overwrite || !vc.Voxels.ContainsKey(key))
+            if (type == 0)
+            {
+                vc.Voxels.Remove(key);
+                if (sygnalize)
+                {
+                    vc.ProcessingNeeded = true;
+                }
+            }
+            else if (overwrite || !vc.Voxels.ContainsKey(key))
             {
                 bool changed = vc.Voxels.AddOrReplace(key, type);
                 if (changed && sygnalize)

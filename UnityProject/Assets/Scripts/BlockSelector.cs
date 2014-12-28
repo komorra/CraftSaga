@@ -7,6 +7,7 @@ public class BlockSelector : MonoBehaviour
     public Vector3 PlacementCoord;
     public Vector3 RemovalCoord;
     public bool Touched = false;
+    public bool IsMainPlayer = false;
 
     private static Material lineMaterial;
 
@@ -54,6 +55,18 @@ public class BlockSelector : MonoBehaviour
 	            break;
 	        }
 	        cur += dir*0.5f;
+	    }
+
+	    if (IsMainPlayer)
+	    {
+	        if (Touched && Input.GetMouseButton(0))
+	        {
+	            int x, y, z;
+	            x = Mathf.RoundToInt(RemovalCoord.x);
+                y = Mathf.RoundToInt(RemovalCoord.y);
+                z = Mathf.RoundToInt(RemovalCoord.z);
+	            WorldManager.Active.Generator.PlaceDamage(x, y, z, Time.deltaTime*0.3f);
+	        }
 	    }
 	}
 

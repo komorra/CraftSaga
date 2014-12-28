@@ -97,6 +97,9 @@ public class VoxelContainer : MonoBehaviour, IProcessable
     public static Dictionary<long, VoxelContainer> Containers = new Dictionary<long, VoxelContainer>();
     public static Dictionary<long, List<VoxelContainer>> FlatContainers = new Dictionary<long, List<VoxelContainer>>();
     public Dictionary<long,int> Voxels = new Dictionary<long, int>();
+    public Dictionary<long, float> Damages = new Dictionary<long, float>();
+
+    private Texture2D breakCoords;
 
     public Dictionary<long, int> Solid
     {
@@ -121,7 +124,9 @@ public class VoxelContainer : MonoBehaviour, IProcessable
     public Texture2D TopTexture;
     public Texture2D SideTexture;
     public Texture2D BottomTexture;
+    public Texture2D BreakTexture;
     public bool ProcessingNeeded = true;
+    public bool BreaksProcessingNeeded = false;
 
     public Color[] aocol { get; set; }
 
@@ -173,8 +178,15 @@ public class VoxelContainer : MonoBehaviour, IProcessable
 
 	// Use this for initialization
 	void Start ()
-	{	    
+	{
+	    breakCoords = new Texture2D(16, 1, TextureFormat.ARGB32, false);
+        breakCoords.filterMode = FilterMode.Point;
+	    breakCoords.wrapMode = TextureWrapMode.Clamp;	    
+	    breakCoords.SetPixels(Enumerable.Repeat(new Color(0, 0, 0, 0), 16).ToArray());
+	    breakCoords.Apply();
+
 	    InvokeRepeating("StateCheck", 0.1f, 0.1f);
+	    InvokeRepeating("BreaksCheck", 0.1f, 0.15f);
 	}
 
     void OnDrawGizmos()
@@ -190,6 +202,33 @@ public class VoxelContainer : MonoBehaviour, IProcessable
     {
         Gizmos.color = Color.green;
         Gizmos.DrawWireCube(new Vector3(VX + 8, VY + 8, VZ + 8), Vector3.one * 16);
+    }    
+
+    private void BreaksCheck()
+    {
+        if (BreaksProcessingNeeded)
+        {
+            BreaksProcessingNeeded = false;
+            int index = 0;
+            foreach (var kv in Damages.Take(16))
+            {
+                int x, y, z;
+                Utils.LongToVoxelCoord(kv.Key, out x, out y, out z);
+                Color32 c = new Color32();
+                c.r = (byte) x;
+                c.g = (byte) y;
+                c.b = (byte) z;
+                c.a = (byte) (kv.Value*255f);
+                breakCoords.SetPixel(index, 0, (Color) c);
+                index++;
+            }
+            for (int la = 0; la < 16; la++)
+            {
+                breakCoords.SetPixel(index, 0, new Color(0, 0, 0, 0));
+            }
+            breakCoords.Apply();
+            renderer.material.SetTexture("_BreakCoords", breakCoords);
+        }
     }
 
     //void OnTriggerEnter(Collider other)
@@ -248,7 +287,7 @@ public class VoxelContainer : MonoBehaviour, IProcessable
         }
         //Debug.Log(Vector3.Distance(new Vector3(VX, VY, VZ), Camera.main.transform.position));	    	    
         Vector3 cam = Camera.main.transform.position;
-        if (Vector2.Distance(new Vector2(VX, VZ), new Vector2(cam.x, cam.z)) > GlobalSettings.Active.MaxVisibilityRadius)
+        if (Vector2.Distance(new Vector2(VX, VZ), new Vector2(cam.x, cam.z)) > GlobalSettings.Active.MaxVisibilityRadius * 2.0)
         {
             Unregister();
             Destroy(gameObject);
@@ -434,6 +473,8 @@ public class VoxelContainer : MonoBehaviour, IProcessable
             container.renderer.material.SetTexture("_BottomSkin", container.BottomTexture);
             container.renderer.material.SetTexture("_AO", container.AOTexture);
             container.renderer.material.SetVector("_ChunkPos", new Vector4(VX, VY, VZ));
+            container.renderer.material.SetTexture("_Break", container.BreakTexture);
+            container.renderer.material.SetTexture("_BreakCoords", container.breakCoords);
         }
     }
 

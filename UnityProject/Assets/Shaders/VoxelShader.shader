@@ -5,6 +5,8 @@
 		_TopSkin ("Top Skin (RGB)", 2D) = "white" {}
 		_SideSkin ("Side Skin (RGB)", 2D) = "white" {}
 		_BottomSkin ("Bottom Skin (RGB)", 2D) = "white" {}
+		_Break ("Break texture (RGB)", 2D) = "white" {}
+		_BreakCoords ("Break coordinates (RGB)", 2D) = "zero" {}
 		_Cutoff ("Alpha cutoff", Range(0,1)) = 0.5
 		_Multiplier("Color Multiplier",Range(1,10)) = 1.0
 		_AO ("Ambient Occlusion", 3D) = "white" 
@@ -30,6 +32,8 @@
 		sampler2D _TopSkin;
 		sampler2D _SideSkin;
 		sampler2D _BottomSkin;
+		sampler2D _Break;
+		sampler2D _BreakCoords;
 		sampler3D _AO;
 		float3 _ChunkPos;
 
@@ -46,8 +50,11 @@
 		}
 
 		float4 GetTexture(int tile, int tilemod, float3 uv, float3 nrm)
-		{
+		{			
 			if(tile == 0)return (float4)0;
+
+			float3 wuv = uv;
+			uv = mod(uv);
 
 			float2 iuv = (float2)0;	
 			nrm*=-1.0;
@@ -83,7 +90,7 @@
 				iuv.y = 1-uv.y;
 			}			
 
-			
+			float2 buv = iuv;
 			iuv.x /= 64.0;		
 			iuv.y /= 64.0;			
 			iuv.x += float(tile % 64) / 64.0;
@@ -91,21 +98,38 @@
 			iuv = iuv-floor(iuv);						
 			iuv.y = 1.0-iuv.y;
 
+			float4 brk = float4(0,0,0,0);
+			float4 br = (float4)0;
+			for(int la=0;la<16;la++)
+			{			
+				br = tex2D(_BreakCoords, float2((la+0.5)/16.0,0.5));
+				int3 crd1 = ceil((br.rgb * 255.0 - (wuv - _ChunkPos)) + 0.001);
+				int3 crd2 = ceil((br.rgb * 255.0 - (wuv - _ChunkPos)) - 0.001);
+				if(length((float3)(crd1*crd2))<1) if(br.a > 0.125)
+				{
+					brk = tex2D(_Break, float2(buv.x/8.0+floor(br.a*8.0)/8.0,buv.y));					
+					break;
+				}
+			}
+			//brk.a = 0;
+			brk.rgb = brk.a * 0.25;			
+			brk.a = 0;								
+
 			if(abs(nrm.x) > 0.5)
 			{
-				return tex2D(_SideSkin, iuv);
+				return tex2D(_SideSkin, iuv)-brk;
 			}
 			if(abs(nrm.z) > 0.5)
 			{
-				return tex2D(_SideSkin, iuv);	 
+				return tex2D(_SideSkin, iuv)-brk;	 
 			}
 			if(nrm.y > 0.5)
 			{
-				return tex2D(_BottomSkin, iuv);
+				return tex2D(_BottomSkin, iuv)-brk;
 			}
 			if(nrm.y < -0.5)
 			{
-				return tex2D(_TopSkin, iuv);
+				return tex2D(_TopSkin, iuv)-brk;
 			}
 			return float4(0,0,0,0);
 		}
@@ -115,22 +139,15 @@
 			float2 uvn = IN.uv_MainTex;			
 			float4 col = tex2D(_MainTex, uvn);
 			
-			float4 ct = GetTexture((int)(col.r * 255) + (int)(col.g * 65280), (int)(col.b * 255) , mod(IN.worldPos), IN.worldNormal);
-			//float4 ct = GetTexture(32*64, (int)(col.b * 255) , mod(IN.worldPos), IN.worldNormal);
-			//if(ct.a < 0.5) ct.rgb = float3(1,0,0);	
-			ct *=  _Color * _Multiplier;		
+			float4 ct = GetTexture((int)(col.r * 255) + (int)(col.g * 65280), (int)(col.b * 255) , IN.worldPos, IN.worldNormal);				
+			ct *=  _Color * _Multiplier;					
 			
-			float3 wp= IN.worldPos-0.001-_ChunkPos;
-			//wp.x -= 1.0;
-			//wp.y -= 1.0;
-			//wp.z -= 1.0;
+			float3 wp= IN.worldPos-0.001-_ChunkPos;			
 			
-			float ao = tex3D(_AO, wp.xyz/16.0).r;
-			//ao = 1;
+			float ao = tex3D(_AO, wp.xyz/16.0).r;			
 
 			o.Albedo = ct.rgb *  pow(saturate(ao+0.05),4.3);
-			o.Alpha = ct.a;
-			//if(ct.a < 0.5)discard; saturate(0.5 + IN.worldPos.y * 0.06) *
+			o.Alpha = ct.a;			
 		}
 		ENDCG
 	} 
